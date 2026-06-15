@@ -61,12 +61,6 @@ export default function Page() {
           </Text>
         </HStack>
         <ProgressBar percent={mounted ? overall.percent : 0} />
-        <Grid gap="2" columns={4}>
-          <Stat label="コンプ率" value={mounted ? `${overall.percent}%` : '—'} />
-          <Stat label="所持" value={mounted ? `${overall.owned}` : '—'} />
-          <Stat label="不足" value={mounted ? `${overall.missing}` : '—'} />
-          <Stat label="ダブり" value={mounted ? `${overall.duplicates}` : '—'} />
-        </Grid>
         {mounted && overall.owned > 0 ? (
           <Button
             size="sm"
@@ -229,19 +223,6 @@ export default function Page() {
           ownership={ownership}
         />
       ) : null}
-    </Stack>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <Stack gap="0" alignItems="center">
-      <Text textStyle="display" color="accent.default" fontSize="xl" lineHeight="1.1">
-        {value}
-      </Text>
-      <Text color="fg.muted" fontSize="xs">
-        {label}
-      </Text>
     </Stack>
   );
 }
