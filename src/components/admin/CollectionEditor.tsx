@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FaCheck, FaPenToSquare, FaPlus, FaTrash } from 'react-icons/fa6';
+import { FaCheck, FaPenToSquare, FaPlus, FaTrash, FaXmark } from 'react-icons/fa6';
 import { Box, Grid, HStack, Stack, Wrap } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -12,14 +12,17 @@ import { Textarea } from '~/components/ui/textarea';
 import { useToaster } from '~/context/ToasterContext';
 import { catalogActions } from '~/hooks/useCatalog';
 import { seedCatalog } from '~/data/catalog';
-import type { Catalog, Collection, CollectionKind, Member } from '~/types';
+import type { BromideSpec, Catalog, Collection, CollectionKind, Member } from '~/types';
 
 const SEED_IDS = new Set(seedCatalog.collections.map((c) => c.id));
 
 const KIND_ITEMS: { value: CollectionKind; label: string }[] = [
   { value: 'member_grid', label: 'メンバー別' },
-  { value: 'flat', label: '集合' }
+  { value: 'flat', label: '集合' },
+  { value: 'mixed', label: '個別' }
 ];
+
+const GROUP_VALUE = '__group__';
 
 function slugify(title: string): string {
   const base = title
@@ -46,6 +49,9 @@ interface FormState {
   memberIds: Set<string>;
   count: number;
   sizes: string;
+  items: BromideSpec[];
+  addMemberId: string | null;
+  addNo: number;
 }
 
 function parseSizes(value: string): string[] {
@@ -63,7 +69,10 @@ function emptyForm(members: Member[]): FormState {
     kind: 'member_grid',
     memberIds: new Set(members.map((m) => m.id)),
     count: 3,
-    sizes: ''
+    sizes: '',
+    items: [],
+    addMemberId: members[0]?.id ?? null,
+    addNo: 1
   };
 }
 
@@ -83,7 +92,10 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
           editing.memberIds.length ? editing.memberIds : catalog.members.map((m) => m.id)
         ),
         count: editing.numbers.length || 1,
-        sizes: (editing.sizes ?? []).join(', ')
+        sizes: (editing.sizes ?? []).join(', '),
+        items: (editing.items ?? []).map((it) => ({ memberId: it.memberId, no: it.no })),
+        addMemberId: catalog.members[0]?.id ?? null,
+        addNo: 1
       });
     } else {
       setForm(emptyForm(catalog.members));
@@ -105,26 +117,57 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
     [catalog.members, form.memberIds]
   );
 
+  const addItem = () => {
+    setForm((prev) => {
+      const exists = prev.items.some(
+        (it) => it.memberId === prev.addMemberId && it.no === prev.addNo
+      );
+      if (exists) {
+        toast({ title: 'すでに追加済みです', type: 'error' });
+        return prev;
+      }
+      return {
+        ...prev,
+        items: [...prev.items, { memberId: prev.addMemberId, no: prev.addNo }]
+      };
+    });
+  };
+
+  const removeItem = (index: number) =>
+    setForm((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
+
   const canSave =
     form.title.trim().length > 0 &&
-    form.count >= 1 &&
-    (form.kind === 'flat' || selectedMembers.length > 0);
+    (form.kind === 'mixed'
+      ? form.items.length > 0
+      : form.count >= 1 && (form.kind === 'flat' || selectedMembers.length > 0));
 
   const save = () => {
     if (!canSave) return;
-    const numbers = Array.from({ length: form.count }, (_, i) => i + 1);
     const sizes = parseSizes(form.sizes);
-    const collection: Collection = {
+    const base = {
       id: editing?.id ?? `${slugify(form.title)}-${Date.now().toString(36)}`,
       title: form.title.trim(),
       description: form.description.trim() || undefined,
       releaseDate: form.releaseDate || undefined,
-      kind: form.kind,
-      memberIds: form.kind === 'flat' ? [] : selectedMembers.map((m) => m.id),
-      numbers,
       sizes: sizes.length > 0 ? sizes : undefined,
       createdAt: editing?.createdAt ?? new Date().toISOString()
     };
+    const collection: Collection =
+      form.kind === 'mixed'
+        ? {
+            ...base,
+            kind: 'mixed',
+            memberIds: [],
+            numbers: [],
+            items: form.items.map((it) => ({ memberId: it.memberId, no: it.no }))
+          }
+        : {
+            ...base,
+            kind: form.kind,
+            memberIds: form.kind === 'flat' ? [] : selectedMembers.map((m) => m.id),
+            numbers: Array.from({ length: form.count }, (_, i) => i + 1)
+          };
     catalogActions.upsertCollection(collection);
     toast({ title: editing ? '更新しました' : '作成しました', type: 'success' });
     setEditing(null);
@@ -190,15 +233,19 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
               onChange={(e) => patch({ releaseDate: e.target.value })}
             />
           </Stack>
-          <Stack gap="1.5">
-            <FieldLabel>種類数</FieldLabel>
-            <NumberInput
-              value={String(form.count)}
-              min={1}
-              max={99}
-              onValueChange={(e) => patch({ count: Math.max(1, Math.round(e.valueAsNumber || 1)) })}
-            />
-          </Stack>
+          {form.kind === 'mixed' ? null : (
+            <Stack gap="1.5">
+              <FieldLabel>種類数</FieldLabel>
+              <NumberInput
+                value={String(form.count)}
+                min={1}
+                max={99}
+                onValueChange={(e) =>
+                  patch({ count: Math.max(1, Math.round(e.valueAsNumber || 1)) })
+                }
+              />
+            </Stack>
+          )}
         </Grid>
 
         <Stack gap="1.5">
@@ -276,6 +323,139 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
           </Stack>
         ) : null}
 
+        {form.kind === 'mixed' ? (
+          <Stack gap="2.5">
+            <FieldLabel>個別アイテム</FieldLabel>
+            <Wrap gap="1.5">
+              {catalog.members.map((m) => {
+                const active = form.addMemberId === m.id;
+                return (
+                  <HStack
+                    as="button"
+                    key={m.id}
+                    onClick={() => patch({ addMemberId: m.id })}
+                    style={
+                      active
+                        ? { backgroundColor: m.color, borderColor: m.color, color: '#ffffff' }
+                        : undefined
+                    }
+                    cursor="pointer"
+                    gap="1.5"
+                    borderColor={active ? undefined : 'board.border'}
+                    borderRadius="full"
+                    borderWidth="1px"
+                    py="1"
+                    px="2.5"
+                    bgColor={active ? undefined : 'board.panel'}
+                    opacity={active ? 1 : 0.65}
+                    transition="all 0.12s"
+                    _hover={{ opacity: 1 }}
+                  >
+                    <Box style={{ backgroundColor: m.color }} borderRadius="full" w="2.5" h="2.5" />
+                    <Text fontSize="xs" fontWeight="medium">
+                      {m.name}
+                    </Text>
+                  </HStack>
+                );
+              })}
+              <HStack
+                as="button"
+                onClick={() => patch({ addMemberId: null })}
+                style={
+                  form.addMemberId === null
+                    ? { backgroundColor: '#FF5FA2', borderColor: '#FF5FA2', color: '#ffffff' }
+                    : undefined
+                }
+                cursor="pointer"
+                gap="1.5"
+                borderColor={form.addMemberId === null ? undefined : 'board.border'}
+                borderRadius="full"
+                borderWidth="1px"
+                py="1"
+                px="2.5"
+                bgColor={form.addMemberId === null ? undefined : 'board.panel'}
+                opacity={form.addMemberId === null ? 1 : 0.65}
+                transition="all 0.12s"
+                _hover={{ opacity: 1 }}
+              >
+                <Text fontSize="xs" fontWeight="medium">
+                  集合
+                </Text>
+              </HStack>
+            </Wrap>
+            <HStack gap="2" alignItems="end">
+              <Stack flex="1" gap="1.5">
+                <FieldLabel>No.</FieldLabel>
+                <NumberInput
+                  value={String(form.addNo)}
+                  min={1}
+                  max={99}
+                  onValueChange={(e) =>
+                    patch({ addNo: Math.max(1, Math.round(e.valueAsNumber || 1)) })
+                  }
+                />
+              </Stack>
+              <Button variant="outline" onClick={addItem}>
+                <FaPlus />
+                追加
+              </Button>
+            </HStack>
+
+            {form.items.length > 0 ? (
+              <Stack gap="1.5">
+                {form.items.map((it, i) => {
+                  const m = it.memberId
+                    ? catalog.members.find((x) => x.id === it.memberId)
+                    : undefined;
+                  const color = m?.color ?? '#FF5FA2';
+                  return (
+                    <HStack
+                      key={`${it.memberId ?? GROUP_VALUE}:${it.no}`}
+                      gap="2"
+                      borderColor="board.border"
+                      borderRadius="lg"
+                      borderWidth="1px"
+                      py="1.5"
+                      px="2.5"
+                      bgColor="board.panel"
+                    >
+                      <Box
+                        style={{ backgroundColor: color }}
+                        flexShrink="0"
+                        borderRadius="full"
+                        w="2.5"
+                        h="2.5"
+                      />
+                      <Text flex="1" fontSize="sm" fontWeight="medium" truncate>
+                        {m ? m.name : '集合'}
+                      </Text>
+                      <Text color="fg.muted" fontSize="xs" fontWeight="bold">
+                        No.{it.no}
+                      </Text>
+                      <Box
+                        as="button"
+                        aria-label="削除"
+                        onClick={() => removeItem(i)}
+                        cursor="pointer"
+                        display="flex"
+                        alignItems="center"
+                        color="fg.muted"
+                        _hover={{ color: 'red.10' }}
+                      >
+                        <FaXmark size={12} />
+                      </Box>
+                    </HStack>
+                  );
+                })}
+              </Stack>
+            ) : (
+              <Text color="fg.subtle" fontSize="xs">
+                メンバーまたは集合を選び、No. を入力して追加してください
+              </Text>
+            )}
+          </Stack>
+        ) : null}
+
         <Button onClick={save} disabled={!canSave}>
           {editing ? <FaCheck /> : <FaPlus />}
           {editing ? '更新する' : '作成する'}
@@ -305,9 +485,15 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
                     <Badge
                       size="sm"
                       variant="subtle"
-                      colorPalette={c.kind === 'member_grid' ? 'pink' : 'gray'}
+                      colorPalette={
+                        c.kind === 'member_grid' ? 'pink' : c.kind === 'mixed' ? 'red' : 'gray'
+                      }
                     >
-                      {c.kind === 'member_grid' ? 'メンバー別' : '集合'}
+                      {c.kind === 'member_grid'
+                        ? 'メンバー別'
+                        : c.kind === 'mixed'
+                          ? '個別'
+                          : '集合'}
                     </Badge>
                     {custom ? (
                       <Badge size="sm" variant="outline" colorPalette="amber">
@@ -316,8 +502,9 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
                     ) : null}
                   </HStack>
                   <Text color="fg.muted" fontSize="xs">
-                    {c.numbers.length}種
-                    {c.kind === 'member_grid' ? ` × ${c.memberIds.length}名` : ''}
+                    {c.kind === 'mixed'
+                      ? `${c.items?.length ?? 0}種（個別）`
+                      : `${c.numbers.length}種${c.kind === 'member_grid' ? ` × ${c.memberIds.length}名` : ''}`}
                   </Text>
                 </Stack>
                 <HStack gap="1">

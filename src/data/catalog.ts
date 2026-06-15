@@ -105,6 +105,36 @@ const COLLECTION_SEEDS: CollectionSeed[] = [
     createdAt: '2024-12-01T00:00:00.000Z'
   },
   {
+    id: 'momo-birthday-2024',
+    title: '菅原もも 生誕2024',
+    description: '菅原ももソロ生誕ブロマイド（単独・L／2L・全6種）',
+    kind: 'member_grid',
+    memberIds: ['momo'],
+    numbers: range(6),
+    sizes: ['L', '2L'],
+    createdAt: '2024-06-12T00:00:00.000Z'
+  },
+  {
+    id: 'mixed-2024',
+    title: 'ミックスブロマイドセット',
+    description: 'メンバーごとに枚数が違うミックスセット（個別タグ付け）',
+    kind: 'mixed',
+    memberIds: [],
+    numbers: [],
+    items: [
+      { memberId: 'momo', no: 1 },
+      { memberId: 'momo', no: 2 },
+      { memberId: 'momo', no: 3 },
+      { memberId: 'reina', no: 1 },
+      { memberId: 'reina', no: 2 },
+      { memberId: 'shiori', no: 1 },
+      { memberId: 'ayumi', no: 1 },
+      { memberId: null, no: 1 },
+      { memberId: null, no: 2 }
+    ],
+    createdAt: '2024-09-01T00:00:00.000Z'
+  },
+  {
     id: 'anniversary-group',
     title: '1st Anniversary 集合ブロマイド',
     description: '集合写真ブロマイド（番号のみ・全8種）',
@@ -132,6 +162,22 @@ export function bromideId(
 export function buildBromides(collection: Collection): Bromide[] {
   const createdAt = collection.createdAt;
   const sizes = collectionSizes(collection);
+
+  if (collection.kind === 'mixed') {
+    const items = collection.items ?? [];
+    return sizes.flatMap((size) =>
+      items.map((it) => ({
+        id: bromideId(collection.id, it.memberId, it.no, size),
+        collectionId: collection.id,
+        memberId: it.memberId,
+        size,
+        no: it.no,
+        label: it.label,
+        createdAt
+      }))
+    );
+  }
+
   const memberIds = collection.kind === 'flat' ? [null] : collection.memberIds;
   return sizes.flatMap((size) =>
     memberIds.flatMap((memberId) =>

@@ -13,7 +13,13 @@ export interface Group {
   nameKana: string;
 }
 
-export type CollectionKind = 'member_grid' | 'flat';
+export type CollectionKind = 'member_grid' | 'flat' | 'mixed';
+
+export interface BromideSpec {
+  memberId: string | null;
+  no: number;
+  label?: string;
+}
 
 export interface Collection {
   id: string;
@@ -25,6 +31,7 @@ export interface Collection {
   memberIds: string[];
   numbers: number[];
   sizes?: string[];
+  items?: BromideSpec[];
   createdAt: string;
 }
 

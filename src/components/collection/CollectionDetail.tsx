@@ -10,7 +10,7 @@ import { Text } from '~/components/ui/text';
 import { BromideTile } from '~/components/bromide/BromideTile';
 import { ProgressBar, StatPills } from '~/components/bromide/Progress';
 import type { Bromide, Catalog, Collection, Member } from '~/types';
-import { buildGrid, collectionStats } from '~/utils/stats';
+import { buildGrid, collectionStats, memberMap } from '~/utils/stats';
 import { toAppUrl } from '~/utils/url';
 import { BulkActions } from './BulkActions';
 import { formatReleaseDate, kindLabel, memberCountLabel } from './format';
@@ -184,7 +184,7 @@ export function CollectionDetail({
             >
               <Text fontSize="sm">未所持のみ表示</Text>
             </Switch>
-            {grid.kind === 'member_grid' ? (
+            {grid.kind === 'member_grid' && grid.members.length > 1 ? (
               <Switch checked={byMember} onCheckedChange={(e) => setByMember(e.checked)} size="sm">
                 <HStack gap="1.5">
                   {byMember ? <FaUsers size={12} /> : <FaTableCells size={12} />}
@@ -203,7 +203,7 @@ export function CollectionDetail({
       </Stack>
 
       {grid.kind === 'member_grid' ? (
-        byMember ? (
+        byMember || grid.members.length <= 1 ? (
           <MemberSections
             ownership={ownership}
             toggle={toggle}
@@ -222,6 +222,7 @@ export function CollectionDetail({
         )
       ) : (
         <FlatGridView
+          catalog={catalog}
           bromides={grid.bromides}
           ownership={ownership}
           toggle={toggle}
@@ -415,11 +416,20 @@ function MemberSections({ grid, ownership, toggle, setCount, shouldShow }: Membe
 }
 
 interface FlatGridProps extends GridViewProps {
+  catalog: Catalog;
   bromides: Bromide[];
 }
 
-function FlatGridView({ bromides, ownership, toggle, setCount, shouldShow }: FlatGridProps) {
+function FlatGridView({
+  catalog,
+  bromides,
+  ownership,
+  toggle,
+  setCount,
+  shouldShow
+}: FlatGridProps) {
   const visible = bromides.filter((b) => shouldShow(b.id));
+  const mm = memberMap(catalog);
   if (visible.length === 0) {
     return (
       <Center
@@ -437,23 +447,26 @@ function FlatGridView({ bromides, ownership, toggle, setCount, shouldShow }: Fla
   }
   return (
     <Grid gap="3" gridTemplateColumns="repeat(auto-fill, minmax(90px, 1fr))">
-      {visible.map((b) => (
-        <Stack key={b.id} gap="1.5">
-          <BromideTile
-            bromide={b}
-            member={null}
-            count={ownership[b.id] ?? 0}
-            onToggle={() => toggle(b.id)}
-            onSetCount={(n) => setCount(b.id, n)}
-            label={`No.${b.no}`}
-            size="md"
-            showStepper
-          />
-          <Center>
-            <SubmitLink bromideId={b.id} />
-          </Center>
-        </Stack>
-      ))}
+      {visible.map((b) => {
+        const member = b.memberId ? (mm.get(b.memberId) ?? null) : null;
+        return (
+          <Stack key={b.id} gap="1.5">
+            <BromideTile
+              bromide={b}
+              member={member}
+              count={ownership[b.id] ?? 0}
+              onToggle={() => toggle(b.id)}
+              onSetCount={(n) => setCount(b.id, n)}
+              label={member ? `${member.nickname} No.${b.no}` : `No.${b.no}`}
+              size="md"
+              showStepper
+            />
+            <Center>
+              <SubmitLink bromideId={b.id} />
+            </Center>
+          </Stack>
+        );
+      })}
     </Grid>
   );
 }

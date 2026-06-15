@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { Box, Grid, Stack } from 'styled-system/jsx';
 import { Text } from '~/components/ui/text';
 import type { Bromide, Catalog, Collection, Member } from '~/types';
-import { buildGrid } from '~/utils/stats';
+import { buildGrid, memberMap } from '~/utils/stats';
 
 const MAX = 3;
 
@@ -26,12 +26,15 @@ export function QuickGrid({
   const grid = buildGrid(catalog, collection, size);
 
   if (grid.kind === 'flat') {
+    const mm = memberMap(catalog);
     return (
       <Grid gap="2.5" columns={{ base: 3, sm: 4, md: 6 }}>
         {grid.bromides.map((b) => (
           <QuickCell
             key={b.id}
             bromide={b}
+            member={b.memberId ? (mm.get(b.memberId) ?? undefined) : undefined}
+            showMemberLabel
             count={countOf(b.id)}
             onCycle={() => onCycle(b.id)}
             onReset={() => onReset(b.id)}
@@ -76,12 +79,13 @@ export function QuickGrid({
 interface QuickCellProps {
   bromide: Bromide;
   member?: Member;
+  showMemberLabel?: boolean;
   count: number;
   onCycle: () => void;
   onReset: () => void;
 }
 
-function QuickCell({ bromide, member, count, onCycle, onReset }: QuickCellProps) {
+function QuickCell({ bromide, member, showMemberLabel, count, onCycle, onReset }: QuickCellProps) {
   const color = member?.color ?? '#FF5FA2';
   const owned = count > 0;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -171,7 +175,7 @@ function QuickCell({ bromide, member, count, onCycle, onReset }: QuickCellProps)
         ) : null}
       </Box>
       <Text color="fg.muted" fontSize="2xs" textAlign="center" truncate>
-        No.{bromide.no}
+        {showMemberLabel && member ? `${member.nickname} No.${bromide.no}` : `No.${bromide.no}`}
       </Text>
     </Stack>
   );

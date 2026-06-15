@@ -8,7 +8,7 @@ import { useToaster } from '~/context/ToasterContext';
 import { catalogActions } from '~/hooks/useCatalog';
 import { uploadBromideImage } from '~/lib/storage';
 import type { Bromide, Catalog, Collection, Member } from '~/types';
-import { buildGrid } from '~/utils/stats';
+import { buildGrid, memberMap } from '~/utils/stats';
 
 const Img = styled('img');
 
@@ -51,12 +51,18 @@ export function ImageManager({
   ) : null;
 
   if (grid.kind === 'flat') {
+    const mm = memberMap(catalog);
     return (
       <Stack gap="4">
         {sizeSelector}
         <Grid gap="3" columns={{ base: 2, sm: 3, md: 5 }}>
           {grid.bromides.map((b) => (
-            <ImageCell key={b.id} bromide={b} />
+            <ImageCell
+              key={b.id}
+              bromide={b}
+              member={b.memberId ? (mm.get(b.memberId) ?? undefined) : undefined}
+              showMemberLabel
+            />
           ))}
         </Grid>
       </Stack>
@@ -87,7 +93,15 @@ export function ImageManager({
   );
 }
 
-function ImageCell({ bromide, member }: { bromide: Bromide; member?: Member }) {
+function ImageCell({
+  bromide,
+  member,
+  showMemberLabel
+}: {
+  bromide: Bromide;
+  member?: Member;
+  showMemberLabel?: boolean;
+}) {
   const { toast } = useToaster();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -161,6 +175,21 @@ function ImageCell({ bromide, member }: { bromide: Bromide; member?: Member }) {
           </Box>
         ) : null}
       </Box>
+
+      {showMemberLabel ? (
+        <HStack gap="1" justifyContent="center" minW="0">
+          <Box
+            style={{ backgroundColor: color }}
+            flexShrink="0"
+            borderRadius="full"
+            w="1.5"
+            h="1.5"
+          />
+          <Text color="fg.muted" fontSize="2xs" fontWeight="medium" truncate>
+            {member ? `${member.name} No.${bromide.no}` : `集合 No.${bromide.no}`}
+          </Text>
+        </HStack>
+      ) : null}
 
       <styled.input
         ref={inputRef}

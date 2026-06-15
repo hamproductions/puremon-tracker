@@ -1,7 +1,7 @@
 import { Box, Grid, Stack, styled } from 'styled-system/jsx';
 import { Text } from '~/components/ui/text';
 import type { Bromide, Catalog, Collection, Member } from '~/types';
-import { buildGrid } from '~/utils/stats';
+import { buildGrid, memberMap } from '~/utils/stats';
 
 const Img = styled('img');
 
@@ -17,12 +17,15 @@ export function TargetGrid({ catalog, collection, size, selectedId, onSelect }: 
   const grid = buildGrid(catalog, collection, size);
 
   if (grid.kind === 'flat') {
+    const mm = memberMap(catalog);
     return (
       <Grid gap="2.5" columns={{ base: 3, sm: 4, md: 6 }}>
         {grid.bromides.map((b) => (
           <TargetCell
             key={b.id}
             bromide={b}
+            member={b.memberId ? (mm.get(b.memberId) ?? undefined) : undefined}
+            showMemberLabel
             selected={b.id === selectedId}
             onSelect={() => onSelect(b)}
           />
@@ -65,11 +68,12 @@ export function TargetGrid({ catalog, collection, size, selectedId, onSelect }: 
 interface TargetCellProps {
   bromide: Bromide;
   member?: Member;
+  showMemberLabel?: boolean;
   selected: boolean;
   onSelect: () => void;
 }
 
-function TargetCell({ bromide, member, selected, onSelect }: TargetCellProps) {
+function TargetCell({ bromide, member, showMemberLabel, selected, onSelect }: TargetCellProps) {
   const wanted = !bromide.imageUrl;
   const color = member?.color ?? '#FF5FA2';
 
@@ -141,7 +145,7 @@ function TargetCell({ bromide, member, selected, onSelect }: TargetCellProps) {
         ) : null}
       </Box>
       <Text color="fg.muted" fontSize="2xs" textAlign="center" truncate>
-        No.{bromide.no}
+        {showMemberLabel && member ? `${member.nickname} No.${bromide.no}` : `No.${bromide.no}`}
       </Text>
     </Stack>
   );

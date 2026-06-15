@@ -51,13 +51,15 @@ export function buildGrid(catalog: Catalog, collection: Collection, size?: strin
   const activeSize = activeSizeOf(collection, size);
   const inSize = bromidesByCollection(catalog, collection.id, activeSize);
 
-  if (collection.kind === 'flat') {
+  if (collection.kind !== 'member_grid') {
+    const mm = memberMap(catalog);
+    const order = (b: Bromide) => (b.memberId ? (mm.get(b.memberId)?.order ?? 900) : 1000);
     return {
       kind: 'flat',
       sizes,
       hasSizes,
       size: activeSize,
-      bromides: inSize.sort((a, b) => a.no - b.no)
+      bromides: inSize.sort((a, b) => order(a) - order(b) || a.no - b.no)
     };
   }
   const mm = memberMap(catalog);
