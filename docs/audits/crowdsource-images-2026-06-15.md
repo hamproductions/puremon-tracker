@@ -2,70 +2,75 @@
 
 ## Intended Feature
 
-- Users browse bromide collections and can contribute missing images.
-- Supabase is optional for collection tracking. Image upload requires Supabase login.
-- Logged-in user image contributions should go through `submissions` and wait for admin approval.
-- Approved images live in `bromide_images` and are public catalog data.
-- Admins can manage collections and approve/reject image submissions.
-- Mixed collections need practical per-card management because members and card counts differ.
+- Admins define image slots for a collection.
+- Users mark owned images and can submit missing images.
+- Admins can register, replace, and remove canonical images.
+- User uploads go to pending submissions; admin uploads write canonical images directly.
+- An image slot is one entity. Pattern-generated slots and arbitrary tagged slots share the same `Bromide` shape.
+- There is no offline image product mode.
 
-## Current Breaks
+## Current Implementation
 
-1. `CollectionDetail` uploads directly to `catalogActions.setBromideImage`.
-   - This bypasses `submissions`.
-   - Non-admin users hit Supabase RLS on `bromide_images`.
-   - Anonymous/no-Supabase users can start an upload even though image upload is not a local feature.
+- Collections still keep the legacy `kind` values internally for migration compatibility, but the UI exposes them as slot-definition patterns:
+  - `メンバー × 番号`
+  - `番号のみ`
+  - `自由リスト`
+- `Bromide` and `BromideSpec` support optional `type`.
+- Existing untyped IDs are unchanged, for example `mixed-2024:momo:1`.
+- Typed arbitrary slots use distinct IDs only when a type is present, for example `mixed-2024:momo:rare:1`.
+- `slotLabel` is used by collection cards, upload target labels, trade selection, and trade text so typed slots render as the same image entity.
+- `/admin?collection=<id>` opens the collection edit modal from the collection page.
+- Collection detail admin mode exposes:
+  - collection edit deep link;
+  - image management mode;
+  - upload/replace;
+  - image removal;
+  - arbitrary typed card add/remove for free-list collections.
+- Upload remains crop/document-scanner based.
+- E2E test users are isolated from remote catalog writes and use seed/local data.
 
-2. `SubmissionReview` exists, but normal uploads never feed it.
-   - It only sees manually created local submissions or remote rows from code paths that do not currently exist.
+## Resolved Issues
 
-3. Admin direct image management and crowdsource submission share the same tile action.
-   - The UI does not make clear whether an image is being submitted for review or registered as canonical.
-   - Existing images cannot be replaced from the tile because the image action is hidden once an image exists.
+1. User uploads bypassed submissions.
+   - Fixed: non-admin uploads call `createImageSubmission` and `saveImageSubmission`.
 
-4. `PhotoAddDialog` has a better batch/crop/targeting workflow, but it was dead code.
-   - It is not mounted from the collection page.
-   - It still writes directly to approved images, so wiring it back without changes would preserve the permission bug.
+2. Admin could not remove canonical images.
+   - Fixed: admin image management exposes `画像を削除`, which calls `catalogActions.setBromideImage(id, null)`.
 
-5. Mixed collection item management is split between `/admin` and inline collection editing.
-   - The admin form can create mixed items, but the collection page mutates the collection immediately per action.
-   - There is no full-list review state and no clear relationship between card edits and image management.
+3. Upload cropper could accept a file but fail at save.
+   - Fixed: crop previews use data URLs and image file detection accepts MIME type or image extension.
 
-6. Permission logic is inconsistent.
-   - UI admin checks use `PUBLIC_ENV__ADMIN_HANDLES`.
-   - Database admin checks use `profiles.is_admin`.
-   - If those drift, the UI can show admin controls that the database rejects.
+4. Collection edit was only practical from admin and mixed concepts were exposed directly.
+   - Fixed: collection pages link to the edit modal, and admin UI uses slot-definition language instead of raw internal kinds.
 
-7. Homepage is noisy for the current product state.
-   - It prioritizes oshi widgets and progress cards but does not surface missing images or the contribution workflow.
-   - There is no obvious route into image contribution.
+5. Arbitrary typed images could not coexist with the same member/number.
+   - Fixed: optional `type` is part of the same image entity and participates in IDs only when present.
 
-## Repair Contract
+6. Browser E2E was not isolated from remote catalog state.
+   - Fixed: E2E profiles use seed/local catalog data and skip remote collection/member writes.
 
-- Add a first-class submission action:
-  - logged-in users upload to storage and insert a `pending` submission;
-  - admins can directly set approved images;
-  - anonymous/no-Supabase users cannot upload images.
-- Make tile image actions explicit:
-  - missing image, submit image;
-  - admin edit mode, register/replace image.
-- Feed `SubmissionReview` from the same submission path.
-- Keep mixed item CRUD in one predictable surface for now:
-  - inline mixed editing remains admin-only;
-  - actions stay immediate but are labeled and gated clearly.
-- Update homepage to surface missing-image contribution as a compact operational section, not another decorative dashboard block.
-- Keep Supabase docs honest about the two admin gates and the required storage/table permissions.
+## Verification
 
-## Verification Baseline
+Commands:
 
-- `bun run type-check && bun run build` passes before changes.
-- Current build has one large chunk warning from Vite.
+- `bun test src/data/catalog.test.ts src/lib/submissions.test.ts`
+- `bun run type-check`
+- `bun run build`
 
-## Changes Made
+Browser evidence:
 
-- Image upload is auth-only.
-- User image uploads create pending submissions.
-- Admin image registration waits for canonical image writes to succeed.
-- The crop/document scanner dialog is restored and used as the upload surface.
-- Mixed collection grids have user-selectable display size and default to larger cards.
-- Homepage now surfaces collections with missing images under `画像募集中`.
+- `dogfood-output/current/crowdsource-final-evidence.webm`
+- `dogfood-output/type-slots/type-slot-admin-flow.webm`
+- `dogfood-output/current/20-isolated-admin-edit-modal.png`
+- `dogfood-output/current/23-isolated-admin-uploaded-tile.png`
+- `dogfood-output/current/24-isolated-admin-image-delete.png`
+- `dogfood-output/current/27-user-submission-saved.png`
+- `dogfood-output/type-slots/21-type-slot-rendered.png`
+- `dogfood-output/type-slots/23-type-upload-crop.png`
+- `dogfood-output/type-slots/24-type-upload-saved.png`
+- `dogfood-output/type-slots/25-type-uploaded-tile.png`
+- `dogfood-output/type-slots/26-type-image-deleted.png`
+
+## Remaining Risk
+
+- Remote Supabase policy correctness still depends on deployed table/storage policies, not only frontend code. The frontend now routes admin/user image writes through the intended paths, but production policy drift must be verified against the deployed Supabase project before changing policies.
