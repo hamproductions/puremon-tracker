@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { BiMenu, BiX } from 'react-icons/bi';
+import { FaLayerGroup } from 'react-icons/fa6';
 import { usePageContext } from 'vike-react/usePageContext';
-import { Box, Container, HStack, Stack, styled } from 'styled-system/jsx';
+import { Box, Center, Container, HStack, Stack, styled } from 'styled-system/jsx';
 import { AuthButton } from '~/components/layout/AuthButton';
 import { ColorModeToggle } from '~/components/layout/ColorModeToggle';
 import { Drawer } from '~/components/ui/drawer';
@@ -25,7 +26,32 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/admin', label: '管理', admin: true }
 ];
 
-const Logo = styled('img');
+function Brand({ size = 'md' }: { size?: 'sm' | 'md' }) {
+  const box = size === 'sm' ? '7' : '8';
+  return (
+    <HStack gap="2" alignItems="center">
+      <Center
+        flexShrink="0"
+        borderRadius="lg"
+        w={box}
+        h={box}
+        color="white"
+        bgColor="accent.default"
+      >
+        <FaLayerGroup size={size === 'sm' ? 13 : 15} />
+      </Center>
+      <styled.span
+        textStyle="display"
+        hideBelow="sm"
+        color="accent.default"
+        fontSize={size === 'sm' ? 'sm' : 'md'}
+        whiteSpace="nowrap"
+      >
+        ピュアリーモンスター
+      </styled.span>
+    </HStack>
+  );
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { urlPathname } = usePageContext();
@@ -75,25 +101,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         backdropFilter="blur(10px)"
       >
         <Container px="4">
-          <HStack gap="4" justifyContent="space-between" alignItems="center" h="14">
+          <HStack gap="3" justifyContent="space-between" alignItems="center" h="14">
             <HStack gap="5" alignItems="center" minW="0">
-              <Link
-                href={toAppUrl('/')}
-                display="flex"
-                gap="2"
-                flexShrink="0"
-                alignItems="center"
-                _hover={{ textDecoration: 'none' }}
-              >
-                <Logo
-                  src={toAppUrl('/purelymonster-logo.png')}
-                  alt="ピュアリーモンスター"
-                  w="auto"
-                  h="9"
-                />
-                <styled.span hideBelow="sm" color="fg.subtle" fontSize="xs" fontWeight="bold">
-                  ブロマイド管理
-                </styled.span>
+              <Link href={toAppUrl('/')} flexShrink="0" _hover={{ textDecoration: 'none' }}>
+                <Brand />
               </Link>
               <HStack hideBelow="md" gap="0.5">
                 {items.map((i) => (
@@ -101,7 +112,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 ))}
               </HStack>
             </HStack>
-            <HStack gap="1.5" flexShrink="0">
+            <HStack gap="1" flexShrink="0">
               <AuthButton />
               <ColorModeToggle />
               <Box hideFrom="md">
@@ -129,12 +140,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <Drawer.Content>
             <Drawer.Header>
               <HStack justifyContent="space-between" alignItems="center" w="full">
-                <Logo
-                  src={toAppUrl('/purelymonster-logo.png')}
-                  alt="ピュアリーモンスター"
-                  w="auto"
-                  h="8"
-                />
+                <Brand size="sm" />
                 <Drawer.CloseTrigger asChild>
                   <IconButton variant="ghost" size="sm">
                     <BiX size={22} />

@@ -25,7 +25,6 @@ export function CollectionCard({ catalog, collection, ownership, mounted }: Coll
     <Link
       href={toAppUrl(`/collections?c=${collection.id}`)}
       display="block"
-      h="full"
       _hover={{ textDecoration: 'none' }}
     >
       <Stack
@@ -33,7 +32,6 @@ export function CollectionCard({ catalog, collection, ownership, mounted }: Coll
         borderColor="board.border"
         borderRadius="2xl"
         borderWidth="1px"
-        h="full"
         p="4"
         bgColor="board.panelSolid"
         transition="border-color 0.15s, transform 0.15s"
@@ -83,7 +81,7 @@ export function CollectionCard({ catalog, collection, ownership, mounted }: Coll
           <Text fontSize="2xs">全 {stats.total} 枚</Text>
         </HStack>
 
-        <Stack gap="2" mt="auto" pt="1">
+        <Stack gap="2" pt="1">
           <ProgressBar percent={mounted ? stats.percent : 0} />
           <HStack justifyContent="space-between" alignItems="center">
             <StatPills stats={stats} mounted={mounted} />

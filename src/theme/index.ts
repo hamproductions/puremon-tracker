@@ -4,9 +4,9 @@ export const theme: PartialTheme = {
   textStyles: {
     display: {
       value: {
-        fontFamily: "'Mochiy Pop P One', 'Noto Sans JP', sans-serif",
-        fontWeight: '400',
-        letterSpacing: '0.01em'
+        fontFamily: "'Noto Sans JP', 'Hiragino Sans', sans-serif",
+        fontWeight: '800',
+        letterSpacing: '0'
       }
     }
   },
