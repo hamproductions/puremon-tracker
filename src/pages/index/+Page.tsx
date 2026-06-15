@@ -1,4 +1,5 @@
-import { FaArrowRightArrowLeft, FaHeart, FaLayerGroup, FaRegStar } from 'react-icons/fa6';
+import { useState } from 'react';
+import { FaArrowRightArrowLeft, FaHeart, FaImage, FaLayerGroup } from 'react-icons/fa6';
 import { Box, Grid, HStack, Stack, Wrap, styled } from 'styled-system/jsx';
 import { readableText } from '~/utils/color';
 import { Button } from '~/components/ui/button';
@@ -7,6 +8,7 @@ import { Link } from '~/components/ui/link';
 import { Text } from '~/components/ui/text';
 import { ProgressBar } from '~/components/bromide/Progress';
 import { CollectionCard } from '~/components/collection/CollectionCard';
+import { ExportDialog } from '~/components/mypick/ExportDialog';
 import { useCatalog } from '~/hooks/useCatalog';
 import { useMounted } from '~/hooks/useMounted';
 import { useOshi } from '~/hooks/useOshi';
@@ -19,6 +21,7 @@ export default function Page() {
   const { ownership } = useOwnership();
   const { isOshi, toggleOshi } = useOshi();
   const mounted = useMounted();
+  const [exportOpen, setExportOpen] = useState(false);
   const overall = overallStats(catalog, ownership);
 
   const memberStat = (memberId: string) => {
@@ -64,17 +67,30 @@ export default function Page() {
           <Stat label="不足" value={mounted ? `${overall.missing}` : '—'} />
           <Stat label="ダブり" value={mounted ? `${overall.duplicates}` : '—'} />
         </Grid>
+        <Button
+          size="sm"
+          variant="subtle"
+          onClick={() => setExportOpen(true)}
+          disabled={!mounted || overall.owned === 0}
+          alignSelf="flex-start"
+        >
+          <FaImage />
+          進捗を画像で保存
+        </Button>
       </Stack>
 
-      <Grid gap="2" columns={{ base: 1, sm: 3 }}>
+      <Grid gap="2" columns={{ base: 1, sm: 2 }}>
         <ActionButton
           href={toAppUrl('/collections')}
           icon={<FaLayerGroup />}
-          label="コレクション"
+          label="コレクションを記録する"
           primary
         />
-        <ActionButton href={toAppUrl('/mypick')} icon={<FaRegStar />} label="マイコレ・不足" />
-        <ActionButton href={toAppUrl('/trade')} icon={<FaArrowRightArrowLeft />} label="譲渡" />
+        <ActionButton
+          href={toAppUrl('/trade')}
+          icon={<FaArrowRightArrowLeft />}
+          label="譲渡をつくる"
+        />
       </Grid>
 
       <Stack
@@ -203,6 +219,15 @@ export default function Page() {
           ))}
         </Grid>
       </Stack>
+
+      {mounted ? (
+        <ExportDialog
+          open={exportOpen}
+          onOpenChange={setExportOpen}
+          catalog={catalog}
+          ownership={ownership}
+        />
+      ) : null}
     </Stack>
   );
 }
