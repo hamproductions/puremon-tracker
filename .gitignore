@@ -9,3 +9,6 @@ styled-system
 .DS_Store
 supabase/.temp
 supabase/.branches
+dogfood-output
+supabase/.branches
+supabase/.temp
