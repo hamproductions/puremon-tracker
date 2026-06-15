@@ -14,7 +14,20 @@ jobs:
         with:
           bun-version: 1.3.4
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      - name: Build with Supabase env
+        env:
+          PUBLIC_ENV__SUPABASE_URL: ${{ secrets.PUBLIC_ENV__SUPABASE_URL }}
+          PUBLIC_ENV__SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_ENV__SUPABASE_ANON_KEY }}
+          PUBLIC_ENV__ADMIN_HANDLES: ${{ secrets.PUBLIC_ENV__ADMIN_HANDLES }}
+          PUBLIC_ENV__BASE_URL: ${{ secrets.PUBLIC_ENV__BASE_URL }}
+        run: |
+          {
+            echo "PUBLIC_ENV__SUPABASE_URL=$PUBLIC_ENV__SUPABASE_URL"
+            echo "PUBLIC_ENV__SUPABASE_ANON_KEY=$PUBLIC_ENV__SUPABASE_ANON_KEY"
+            echo "PUBLIC_ENV__ADMIN_HANDLES=$PUBLIC_ENV__ADMIN_HANDLES"
+            echo "PUBLIC_ENV__BASE_URL=$PUBLIC_ENV__BASE_URL"
+          } > .env
+          bun run build
       - name: Deploy to Netlify
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
