@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BiX } from 'react-icons/bi';
 import {
   FaArrowRightArrowLeft,
+  FaBolt,
   FaCloudArrowUp,
   FaEllipsis,
   FaGear,
@@ -32,6 +33,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { path: '/', label: 'ホーム', exact: true, icon: FaHouse },
   { path: '/collections', label: 'コレクション', icon: FaLayerGroup },
+  { path: '/scan', label: 'まとめて登録', icon: FaBolt },
   { path: '/mypick', label: 'マイコレ', icon: FaStar },
   { path: '/trade', label: '譲渡', icon: FaArrowRightArrowLeft },
   { path: '/submit', label: '画像投稿', icon: FaCloudArrowUp },
@@ -106,9 +108,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <HStack justifyContent="space-between" alignItems="center" w="full">
             <HStack gap="5" alignItems="center">
               <Link href={toAppUrl('/')} _hover={{ textDecoration: 'none' }}>
-                <Text textStyle="display" color="accent.default" fontSize="lg" lineHeight="1">
-                  ピュアモン
-                  <Text as="span" ml="1.5" color="fg.muted" fontSize="sm" fontWeight="bold">
+                <Text
+                  textStyle="display"
+                  color="accent.default"
+                  fontSize={{ base: 'md', md: 'lg' }}
+                  lineHeight="1"
+                  whiteSpace="nowrap"
+                >
+                  ピュアリーモンスター
+                  <Text as="span" ml="1.5" color="fg.muted" fontSize="2xs" fontWeight="bold">
                     ブロマイド
                   </Text>
                 </Text>

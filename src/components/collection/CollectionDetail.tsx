@@ -227,10 +227,10 @@ function MemberGridTable({ grid, ownership, toggle, setCount, shouldShow }: Memb
       overflowX="auto"
     >
       <Box
-        display="grid"
         style={{
           gridTemplateColumns: `56px repeat(${grid.members.length}, minmax(${CELL_MIN}, 1fr))`
         }}
+        display="grid"
         minW="fit-content"
       >
         <Box
@@ -307,7 +307,6 @@ function MemberGridTable({ grid, ownership, toggle, setCount, shouldShow }: Memb
                       onToggle={() => toggle(b.id)}
                       onSetCount={(n) => setCount(b.id, n)}
                       size="sm"
-                      showStepper={false}
                     />
                   ) : (
                     <Box aspectRatio="3 / 4" borderRadius="lg" bgColor="bg.muted" opacity={0.3} />
