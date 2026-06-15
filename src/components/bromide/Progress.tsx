@@ -19,9 +19,7 @@ export function ProgressBar({ percent }: { percent: number }) {
         left="0"
         borderRadius="full"
         h="full"
-        bgGradient="to-r"
-        gradientFrom="pink.9"
-        gradientTo="purple.9"
+        bgColor="accent.default"
         transition="width 0.4s ease"
       />
     </Box>

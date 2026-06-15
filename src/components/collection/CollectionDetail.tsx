@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FaArrowLeft, FaCloudArrowUp, FaImages, FaTableCells, FaUsers } from 'react-icons/fa6';
+import { FaArrowLeft, FaImages, FaTableCells, FaUsers } from 'react-icons/fa6';
 import { Box, Grid, HStack, Stack, styled } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -28,24 +28,6 @@ interface CollectionDetailProps {
 }
 
 const CELL_MIN = '96px';
-
-function SubmitLink({ bromideId }: { bromideId: string }) {
-  return (
-    <Link
-      href={toAppUrl(`/submit?b=${bromideId}`)}
-      onClick={(e) => e.stopPropagation()}
-      display="inline-flex"
-      gap="1"
-      alignItems="center"
-      color="fg.subtle"
-      fontSize="2xs"
-      _hover={{ color: 'accent.text', textDecoration: 'none' }}
-    >
-      <FaCloudArrowUp size={10} />
-      画像を投稿
-    </Link>
-  );
-}
 
 export function CollectionDetail({
   catalog,
@@ -424,9 +406,6 @@ function MemberSections({ grid, ownership, toggle, setCount, shouldShow }: Membe
                     size="md"
                     showStepper
                   />
-                  <Center>
-                    <SubmitLink bromideId={b.id} />
-                  </Center>
                 </Stack>
               ))}
             </Grid>
@@ -483,9 +462,6 @@ function FlatGridView({
               size="md"
               showStepper
             />
-            <Center>
-              <SubmitLink bromideId={b.id} />
-            </Center>
           </Stack>
         );
       })}

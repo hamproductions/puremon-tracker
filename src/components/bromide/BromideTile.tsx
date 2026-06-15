@@ -94,9 +94,7 @@ export function BromideTile({
           />
         ) : (
           <Stack
-            style={{
-              background: `radial-gradient(120% 90% at 50% 0%, ${color}33 0%, ${color}14 45%, transparent 100%)`
-            }}
+            style={{ backgroundColor: owned ? `${color}1f` : undefined }}
             inset="0"
             position="absolute"
             gap="0"
@@ -108,16 +106,6 @@ export function BromideTile({
             </Text>
           </Stack>
         )}
-
-        <Box
-          style={{
-            background:
-              'linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 32%)'
-          }}
-          inset="0"
-          position="absolute"
-          pointerEvents="none"
-        />
 
         {!bromide.imageUrl ? (
           <HStack

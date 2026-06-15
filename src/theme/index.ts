@@ -18,7 +18,7 @@ export const theme: PartialTheme = {
     colors: {
       candy: {
         pink: { value: '#ff5fa2' },
-        sky: { value: '#36c5f0' },
+        sky: { value: '#2196f3' },
         mint: { value: '#5ad1b0' },
         lemon: { value: '#ffd23f' },
         grape: { value: '#9b8cff' }

@@ -12,6 +12,8 @@ import { useOwnership } from '~/hooks/useOwnership';
 import { collectionStats, overallStats } from '~/utils/stats';
 import { toAppUrl } from '~/utils/url';
 
+const Img = styled('img');
+
 export default function Page() {
   const catalog = useCatalog();
   const { ownership } = useOwnership();
@@ -32,59 +34,44 @@ export default function Page() {
 
   return (
     <Stack gap="6" pt="1">
-      <Box
-        position="relative"
+      <Stack
+        gap="0"
         borderColor="board.border"
         borderRadius="3xl"
         borderWidth="1px"
-        py={{ base: '8', md: '12' }}
-        px={{ base: '5', md: '10' }}
+        bgColor="board.panelSolid"
         overflow="hidden"
-        bgGradient="to-b"
-        gradientFrom="board.panelSolid"
-        gradientTo="board.tile"
-        boxShadow="0 18px 50px -28px rgba(54,150,220,0.45)"
       >
-        <Box
-          style={{
-            background:
-              'radial-gradient(circle at 85% 10%, rgba(255,95,162,0.22), transparent 45%), radial-gradient(circle at 12% 90%, rgba(54,197,240,0.22), transparent 45%)'
-          }}
-          inset="0"
-          position="absolute"
-          pointerEvents="none"
-        />
-        <Stack position="relative" gap="5" alignItems="center" textAlign="center">
-          <Badge size="md" variant="subtle" colorPalette="sky" borderRadius="full" px="3">
-            ピュアリーモンスター 非公式ファンツール
-          </Badge>
-          <Heading
-            textStyle="display"
-            color="fg.default"
-            fontSize={{ base: '4xl', md: '6xl' }}
-            lineHeight="1.05"
-          >
-            ブロマイド、
-            <Box
-              as="span"
-              style={{
-                background: 'linear-gradient(90deg, #36c5f0, #ff5fa2)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
-              }}
-              display="inline-block"
-            >
-              ぜんぶ集めよ。
-            </Box>
-          </Heading>
-          <Text maxW="2xl" color="fg.muted" fontSize={{ base: 'sm', md: 'md' }}>
-            所持・ダブり・不足をかわいく管理して、譲渡テキストもワンタップ。
-            <br />
-            ログインなし・オフラインでもすぐ使えます。
-          </Text>
+        <Box position="relative" w="full" h={{ base: '150px', md: '220px' }} bgColor="board.tile">
+          <Img
+            src={toAppUrl('/pm-group.jpg')}
+            alt="ピュアリーモンスター"
+            inset="0"
+            position="absolute"
+            objectPosition="center 30%"
+            objectFit="cover"
+            w="full"
+            h="full"
+          />
+        </Box>
+        <Stack gap="4" alignItems="center" py="6" px={{ base: '5', md: '8' }} textAlign="center">
+          <Img
+            src={toAppUrl('/purelymonster-logo.png')}
+            alt="ピュアリーモンスター"
+            w={{ base: '160px', md: '210px' }}
+            h="auto"
+            mt={{ base: '-12', md: '-16' }}
+            filter="drop-shadow(0 4px 10px rgba(0,0,0,0.25))"
+          />
+          <Stack gap="1">
+            <Heading fontSize={{ base: 'lg', md: 'xl' }}>ブロマイド管理＆交換ツール</Heading>
+            <Text maxW="xl" color="fg.muted" fontSize="sm">
+              所持・ダブり・不足の記録から譲渡テキストまで。ログインなしですぐ使えます。
+            </Text>
+          </Stack>
 
           <Stack gap="1.5" alignItems="center">
-            <Wrap gap="2" justify="center" maxW="3xl">
+            <Wrap gap="1.5" justify="center" maxW="3xl">
               {catalog.members.map((m) => {
                 const oshi = mounted && isOshi(m.id);
                 return (
@@ -95,23 +82,22 @@ export default function Page() {
                     aria-pressed={oshi}
                     aria-label={`${m.nickname}を推しに設定`}
                     style={{
-                      backgroundColor: oshi ? m.color : `${m.color}26`,
-                      color: oshi ? '#fff' : m.color
+                      backgroundColor: oshi ? m.color : 'transparent',
+                      color: oshi ? '#fff' : m.color,
+                      borderColor: m.color
                     }}
                     cursor="pointer"
                     display="inline-flex"
                     gap="1"
                     alignItems="center"
                     borderRadius="full"
-                    py="1.5"
-                    px="3"
+                    borderWidth="1.5px"
+                    py="1"
+                    px="2.5"
                     fontSize="xs"
                     fontWeight="bold"
-                    boxShadow={oshi ? 'sm' : 'none'}
-                    transition="transform 0.12s"
-                    _hover={{ transform: 'translateY(-1px)' }}
                   >
-                    {oshi ? <FaHeart size={10} /> : null}
+                    {oshi ? <FaHeart size={9} /> : null}
                     {m.nickname}
                   </styled.button>
                 );
@@ -122,48 +108,32 @@ export default function Page() {
             </Text>
           </Stack>
 
-          <HStack gap="3" justifyContent="center" pt="1" flexWrap="wrap">
+          <HStack gap="2.5" justifyContent="center" flexWrap="wrap">
             <Link href={toAppUrl('/collections')} _hover={{ textDecoration: 'none' }}>
-              <Button size="lg" borderRadius="full" px="7">
+              <Button size="md" borderRadius="full" px="6">
                 <FaLayerGroup />
                 コレクションを見る
               </Button>
             </Link>
             <Link href={toAppUrl('/mypick')} _hover={{ textDecoration: 'none' }}>
-              <Button size="lg" variant="outline" borderRadius="full" px="6">
+              <Button size="md" variant="outline" borderRadius="full" px="5">
                 <FaRegStar />
                 マイコレ
               </Button>
             </Link>
           </HStack>
         </Stack>
-      </Box>
+      </Stack>
 
       <Grid gap="3" columns={{ base: 2, md: 4 }}>
         <StatCard
           label="所持"
           value={mounted ? `${overall.owned}` : '—'}
           unit={`/ ${overall.total}`}
-          accent="#36c5f0"
         />
-        <StatCard
-          label="コンプ率"
-          value={mounted ? `${overall.percent}` : '—'}
-          unit="%"
-          accent="#ff5fa2"
-        />
-        <StatCard
-          label="不足"
-          value={mounted ? `${overall.missing}` : '—'}
-          unit="枚"
-          accent="#9b8cff"
-        />
-        <StatCard
-          label="ダブり"
-          value={mounted ? `${overall.duplicates}` : '—'}
-          unit="枚"
-          accent="#ffb020"
-        />
+        <StatCard label="コンプ率" value={mounted ? `${overall.percent}` : '—'} unit="%" />
+        <StatCard label="不足" value={mounted ? `${overall.missing}` : '—'} unit="枚" />
+        <StatCard label="ダブり" value={mounted ? `${overall.duplicates}` : '—'} unit="枚" />
       </Grid>
 
       {oshiMembers.length > 0 ? (
@@ -174,7 +144,6 @@ export default function Page() {
           borderWidth="1px"
           p={{ base: '4', md: '5' }}
           bgColor="board.panelSolid"
-          boxShadow="0 8px 22px -18px rgba(30,90,150,0.5)"
         >
           <HStack gap="1.5" color="brand.pink">
             <FaHeart size={13} />
@@ -236,9 +205,9 @@ export default function Page() {
           <Heading fontSize="lg">コレクション</Heading>
           <Link
             href={toAppUrl('/collections')}
-            color="accent.text"
+            color="accent.default"
             fontSize="sm"
-            fontWeight="medium"
+            fontWeight="bold"
           >
             すべて見る →
           </Link>
@@ -246,11 +215,13 @@ export default function Page() {
         <Grid gap="3" columns={{ base: 1, sm: 2, lg: 3 }}>
           {catalog.collections.map((c) => {
             const s = collectionStats(catalog, c.id, ownership);
-            const cover = c.memberIds.length
-              ? c.memberIds
-                  .map((id) => catalog.members.find((m) => m.id === id)?.color ?? '#cbd5e1')
-                  .slice(0, 7)
-              : ['#36c5f0', '#ff5fa2'];
+            const dots = (
+              c.memberIds.length
+                ? c.memberIds.map(
+                    (id) => catalog.members.find((m) => m.id === id)?.color ?? '#cbd5e1'
+                  )
+                : ['#2196f3']
+            ).slice(0, 7);
             return (
               <Link
                 key={c.id}
@@ -258,66 +229,67 @@ export default function Page() {
                 _hover={{ textDecoration: 'none' }}
               >
                 <Stack
-                  gap="0"
+                  gap="2.5"
                   borderColor="board.border"
                   borderRadius="2xl"
                   borderWidth="1px"
                   h="full"
+                  p="4"
                   bgColor="board.panelSolid"
-                  boxShadow="0 8px 24px -18px rgba(30,90,150,0.5)"
-                  overflow="hidden"
-                  transition="transform 0.15s, box-shadow 0.15s"
-                  _hover={{
-                    transform: 'translateY(-3px)',
-                    boxShadow: '0 16px 30px -18px rgba(30,90,150,0.6)'
-                  }}
+                  transition="border-color 0.15s"
+                  _hover={{ borderColor: 'accent.default' }}
                 >
-                  <Box
-                    style={{ background: `linear-gradient(90deg, ${cover.join(', ')})` }}
-                    w="full"
-                    h="2.5"
-                  />
-                  <Stack gap="2.5" p="4">
+                  <HStack gap="2" justifyContent="space-between" alignItems="flex-start">
                     <Text fontWeight="bold" lineHeight="1.3">
                       {c.title}
                     </Text>
-                    <HStack gap="2" color="fg.muted" fontSize="xs">
-                      <Text fontSize="xs">
-                        {c.kind === 'flat' ? '集合' : `${c.memberIds.length}人`}
-                      </Text>
-                      <Text fontSize="xs">・全 {s.total} 枚</Text>
-                      {c.sizes?.length ? <Text fontSize="xs">・{c.sizes.join('/')}</Text> : null}
+                    <HStack gap="0.5" flexShrink="0" pt="1">
+                      {dots.map((color, i) => (
+                        <Box
+                          key={i}
+                          style={{ backgroundColor: color }}
+                          borderRadius="full"
+                          w="1.5"
+                          h="1.5"
+                        />
+                      ))}
                     </HStack>
+                  </HStack>
+                  <HStack gap="2" color="fg.muted" fontSize="xs">
+                    <Text fontSize="xs">
+                      {c.kind === 'flat' ? '集合' : `${c.memberIds.length}人`}
+                    </Text>
+                    <Text fontSize="xs">・全 {s.total} 枚</Text>
+                    {c.sizes?.length ? <Text fontSize="xs">・{c.sizes.join('/')}</Text> : null}
+                  </HStack>
+                  <Box
+                    position="relative"
+                    borderRadius="full"
+                    h="2"
+                    mt="auto"
+                    bgColor="bg.muted"
+                    overflow="hidden"
+                  >
                     <Box
-                      position="relative"
+                      style={{ width: `${mounted ? s.percent : 0}%` }}
+                      inset="0"
+                      position="absolute"
                       borderRadius="full"
-                      h="2"
-                      bgColor="bg.muted"
-                      overflow="hidden"
+                      bgColor="accent.default"
+                    />
+                  </Box>
+                  <HStack justifyContent="space-between">
+                    <Text color="fg.muted" fontSize="xs" fontVariantNumeric="tabular-nums">
+                      {mounted ? `${s.owned}/${s.total}` : `全${s.total}`}
+                    </Text>
+                    <Badge
+                      size="sm"
+                      variant="subtle"
+                      colorPalette={mounted && s.percent === 100 ? 'green' : 'blue'}
                     >
-                      <Box
-                        style={{ width: `${mounted ? s.percent : 0}%` }}
-                        inset="0"
-                        position="absolute"
-                        borderRadius="full"
-                        bgGradient="to-r"
-                        gradientFrom="brand.sky"
-                        gradientTo="brand.pink"
-                      />
-                    </Box>
-                    <HStack justifyContent="space-between">
-                      <Text color="fg.muted" fontSize="xs" fontVariantNumeric="tabular-nums">
-                        {mounted ? `${s.owned}/${s.total}` : `全${s.total}`}
-                      </Text>
-                      <Badge
-                        size="sm"
-                        variant={mounted && s.percent === 100 ? 'solid' : 'subtle'}
-                        colorPalette={s.percent === 100 ? 'green' : 'sky'}
-                      >
-                        {mounted ? `${s.percent}%` : '—'}
-                      </Badge>
-                    </HStack>
-                  </Stack>
+                      {mounted ? `${s.percent}%` : '—'}
+                    </Badge>
+                  </HStack>
                 </Stack>
               </Link>
             );
@@ -333,19 +305,17 @@ export default function Page() {
           borderRadius="2xl"
           borderWidth="1px"
           p={{ base: '4', md: '5' }}
-          bgGradient="to-r"
-          gradientFrom="board.tile"
-          gradientTo="board.panelSolid"
+          bgColor="board.panelSolid"
           flexWrap="wrap"
         >
           <HStack gap="3">
             <Center
-              style={{ background: 'linear-gradient(135deg, #36c5f0, #ff5fa2)' }}
               flexShrink="0"
               borderRadius="full"
               w="11"
               h="11"
-              color="white"
+              color="accent.text"
+              bgColor="accent.subtle"
             >
               <FaArrowRightArrowLeft />
             </Center>
@@ -365,17 +335,7 @@ export default function Page() {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  unit,
-  accent
-}: {
-  label: string;
-  value: string;
-  unit: string;
-  accent: string;
-}) {
+function StatCard({ label, value, unit }: { label: string; value: string; unit: string }) {
   return (
     <Stack
       gap="0.5"
@@ -384,13 +344,12 @@ function StatCard({
       borderWidth="1px"
       p="4"
       bgColor="board.panelSolid"
-      boxShadow="0 8px 22px -18px rgba(30,90,150,0.5)"
     >
       <Text color="fg.muted" fontSize="xs" fontWeight="medium">
         {label}
       </Text>
       <HStack gap="1" alignItems="baseline">
-        <Text textStyle="display" style={{ color: accent }} fontSize="2xl" lineHeight="1">
+        <Text textStyle="display" color="accent.default" fontSize="2xl" lineHeight="1">
           {value}
         </Text>
         <Text color="fg.muted" fontSize="xs">

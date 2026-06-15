@@ -24,8 +24,8 @@ import { catalogActions } from '~/hooks/useCatalog';
 import { uploadBromideImage } from '~/lib/storage';
 import type { Bromide, Catalog, Collection } from '~/types';
 import { bromideLabel, bromidesByCollection, memberColor } from '~/utils/stats';
-import { detectCropArea } from './AutoScan';
 import { getCroppedBlob } from './cropImage';
+import { scanDocument } from './documentScanner';
 
 const ASPECT = 3 / 4;
 
@@ -475,42 +475,70 @@ function CropStep({
   const [zoom, setZoom] = useState(1);
   const [areaPixels, setAreaPixels] = useState<Area | null>(null);
   const [busy, setBusy] = useState(false);
-  const [autoScan, setAutoScan] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [initialArea, setInitialArea] = useState<Area | undefined>(undefined);
-  const scanToken = useRef(0);
+  const [scannedSrc, setScannedSrc] = useState<string | null>(null);
+  const scanTokenRef = useRef<{ cancelled: boolean } | null>(null);
 
   useEffect(() => {
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setAreaPixels(null);
-    setInitialArea(undefined);
+    if (scanTokenRef.current) scanTokenRef.current.cancelled = true;
+    setScanning(false);
+    setScannedSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
   }, [cropIndex]);
 
-  const runScan = useCallback(
-    async (src: string) => {
-      const token = ++scanToken.current;
-      setScanning(true);
-      const area = await detectCropArea(src, ASPECT);
-      if (token !== scanToken.current) return;
-      setScanning(false);
-      if (area) {
-        setInitialArea(area);
-      } else {
-        toast({ title: 'フチを検出できませんでした', type: 'info' });
-      }
-    },
-    [toast]
-  );
-
   useEffect(() => {
-    if (!autoScan || !current) return;
-    void runScan(current.src);
-  }, [autoScan, current, runScan]);
+    return () => {
+      if (scanTokenRef.current) scanTokenRef.current.cancelled = true;
+      setScannedSrc((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
+  }, []);
 
   const onCropComplete = useCallback((_: Area, pixels: Area) => {
     setAreaPixels(pixels);
   }, []);
+
+  const cancelScan = () => {
+    if (scanTokenRef.current) scanTokenRef.current.cancelled = true;
+    scanTokenRef.current = null;
+    setScanning(false);
+  };
+
+  const runScan = async () => {
+    if (!current || scanning) return;
+    const token = { cancelled: false };
+    scanTokenRef.current = token;
+    setScanning(true);
+    let blob: Blob | null = null;
+    try {
+      blob = await scanDocument(current.src, token);
+    } catch {
+      blob = null;
+    }
+    if (token.cancelled || scanTokenRef.current !== token) return;
+    scanTokenRef.current = null;
+    setScanning(false);
+    if (!blob) {
+      toast({ title: '自動検出できませんでした。手動で調整してください', type: 'error' });
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    setScannedSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return url;
+    });
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setAreaPixels(null);
+    toast({ title: '書類を検出してトリミングしました', type: 'success' });
+  };
 
   if (!current) {
     onFinish(savedCount);
@@ -528,11 +556,13 @@ function CropStep({
     setCropIndex(cropIndex + 1);
   };
 
+  const activeSrc = scannedSrc ?? current.src;
+
   const confirm = async () => {
     if (!areaPixels || !target) return;
     setBusy(true);
     try {
-      const blob = await getCroppedBlob(current.src, areaPixels);
+      const blob = await getCroppedBlob(activeSrc, areaPixels);
       const file = new File([blob], `${target.id}.jpg`, { type: 'image/jpeg' });
       const { url } = await uploadBromideImage(file, target.id);
       await catalogActions.setBromideImage(target.id, url);
@@ -552,26 +582,52 @@ function CropStep({
     <Stack flex="1" gap="0" minH="0">
       <Box position="relative" flex="1" minH={{ base: '52dvh', md: '380px' }} bgColor="#10141c">
         <Cropper
-          image={current.src}
+          image={activeSrc}
           crop={crop}
           aspect={ASPECT}
           minZoom={1}
           maxZoom={5}
           restrictPosition={false}
           showGrid
-          initialCroppedAreaPixels={initialArea}
           onCropChange={setCrop}
           onZoomChange={setZoom}
           onCropComplete={onCropComplete}
           objectFit="contain"
           zoom={zoom}
         />
+        <Button
+          size="sm"
+          variant="solid"
+          onClick={runScan}
+          disabled={scanning || busy}
+          colorPalette="accent"
+          zIndex="1"
+          position="absolute"
+          top="3"
+          right="3"
+        >
+          <FaWandMagicSparkles />
+          自動スキャン
+        </Button>
         {scanning && (
-          <Center inset="0" position="absolute" gap="2" flexDir="column" bgColor="rgba(0,0,0,0.45)">
-            <Spinner />
-            <Text color="white" fontSize="xs">
-              フチを検出中…
+          <Center
+            style={{ backgroundColor: 'rgba(8, 11, 18, 0.82)' }}
+            zIndex="2"
+            inset="0"
+            position="absolute"
+            gap="3"
+            flexDirection="column"
+            px="6"
+            textAlign="center"
+          >
+            <Spinner size="lg" />
+            <Text maxW="260px" color="fg.muted" fontSize="xs">
+              書類のフチを検出中…（初回は読み込みに時間がかかります）
             </Text>
+            <Button size="sm" variant="outline" onClick={cancelScan} colorPalette="gray">
+              <FaXmark />
+              キャンセル
+            </Button>
           </Center>
         )}
       </Box>
@@ -621,28 +677,6 @@ function CropStep({
             accentColor="accent.default"
           />
         </HStack>
-
-        <Box
-          as="button"
-          onClick={() => setAutoScan((v) => !v)}
-          cursor="pointer"
-          display="inline-flex"
-          gap="2"
-          alignItems="center"
-          alignSelf="flex-start"
-          borderColor={autoScan ? 'accent.default' : 'board.border'}
-          borderRadius="md"
-          borderWidth="1px"
-          py="1"
-          px="2"
-          color={autoScan ? 'accent.text' : 'fg.muted'}
-          fontSize="xs"
-          fontWeight="bold"
-          bgColor={autoScan ? 'board.tile' : 'transparent'}
-        >
-          <FaWandMagicSparkles size={12} />
-          自動でフチを検出
-        </Box>
 
         <HStack gap="2" justifyContent="space-between" flexWrap="wrap">
           <Button
