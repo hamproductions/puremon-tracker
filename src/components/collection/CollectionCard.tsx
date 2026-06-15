@@ -70,15 +70,15 @@ export function CollectionCard({ catalog, collection, ownership, mounted }: Coll
           ) : null}
         </Stack>
 
-        <HStack gap="3" color="fg.subtle" fontSize="2xs" flexWrap="wrap">
+        <HStack gap="3" color="fg.subtle" fontSize="xs" flexWrap="wrap">
           {date ? (
             <HStack gap="1">
-              <FaCalendar size={10} />
-              <Text fontSize="2xs">{date}</Text>
+              <FaCalendar size={11} />
+              <Text fontSize="xs">{date}</Text>
             </HStack>
           ) : null}
-          <Text fontSize="2xs">{memberCountLabel(collection)}</Text>
-          <Text fontSize="2xs">全 {stats.total} 枚</Text>
+          <Text fontSize="xs">{memberCountLabel(collection)}</Text>
+          <Text fontSize="xs">全 {stats.total} 枚</Text>
         </HStack>
 
         <Stack gap="2" pt="1">

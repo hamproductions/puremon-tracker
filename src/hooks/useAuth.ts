@@ -68,7 +68,7 @@ export function useAuth() {
     setProfile(null);
   };
 
-  const isAdmin = Boolean(profile?.isAdmin) || localAdmin;
+  const isAdmin = Boolean(profile?.isAdmin) || (localAdmin && !isSupabaseConfigured);
 
   return {
     profile,

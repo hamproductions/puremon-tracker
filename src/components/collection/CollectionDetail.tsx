@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FaArrowLeft, FaTableCells, FaUsers } from 'react-icons/fa6';
 import { Box, Grid, HStack, Stack, styled } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
@@ -35,8 +35,17 @@ export function CollectionDetail({
 }: CollectionDetailProps) {
   const [missingOnly, setMissingOnly] = useState(false);
   const [byMember, setByMember] = useState(false);
+  const [byMemberAuto, setByMemberAuto] = useState(false);
   const [size, setSize] = useState<string | undefined>(undefined);
   const grid = useMemo(() => buildGrid(catalog, collection, size), [catalog, collection, size]);
+
+  useEffect(() => {
+    if (byMemberAuto) return;
+    setByMemberAuto(true);
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches) {
+      setByMember(true);
+    }
+  }, [byMemberAuto]);
   const stats = collectionStats(catalog, collection.id, ownership);
   const sizeStats = collectionStats(catalog, collection.id, ownership, grid.size);
   const date = formatReleaseDate(collection.releaseDate);
@@ -44,6 +53,15 @@ export function CollectionDetail({
 
   const countOf = (id: string) => ownership[id] ?? 0;
   const shouldShow = (id?: string) => !missingOnly || !mounted || (id ? countOf(id) === 0 : true);
+
+  const memberVisible =
+    grid.kind !== 'member_grid' ||
+    grid.numbers.some((no) =>
+      grid.members.some((m) => {
+        const b = grid.cell(m.id, no);
+        return b ? shouldShow(b.id) : false;
+      })
+    );
 
   return (
     <Stack gap="5">
@@ -128,7 +146,7 @@ export function CollectionDetail({
             <SegmentGroup.Root
               value={grid.size ?? ''}
               onValueChange={(e) => setSize(e.value)}
-              size="sm"
+              size="md"
               orientation="horizontal"
             >
               <SegmentGroup.Indicator />
@@ -168,7 +186,9 @@ export function CollectionDetail({
       </Stack>
 
       {grid.kind === 'member_grid' ? (
-        byMember || grid.members.length <= 1 ? (
+        !memberVisible ? (
+          <EmptyState missingOnly={missingOnly} />
+        ) : byMember || grid.members.length <= 1 ? (
           <MemberSections
             ownership={ownership}
             toggle={toggle}
@@ -292,7 +312,7 @@ function MemberGridTable({ grid, ownership, toggle, setCount, shouldShow }: Memb
             </Center>
             {grid.members.map((m) => {
               const b = grid.cell(m.id, no);
-              const hidden = b ? !shouldShow(b.id) : false;
+              const show = b ? shouldShow(b.id) : false;
               return (
                 <Box
                   key={m.id}
@@ -300,10 +320,8 @@ function MemberGridTable({ grid, ownership, toggle, setCount, shouldShow }: Memb
                   borderTopWidth="1px"
                   borderLeftWidth="1px"
                   p="1.5"
-                  opacity={hidden ? 0.15 : 1}
-                  pointerEvents={hidden ? 'none' : undefined}
                 >
-                  {b ? (
+                  {b && show ? (
                     <BromideTile
                       bromide={b}
                       member={m}
@@ -327,6 +345,30 @@ function MemberGridTable({ grid, ownership, toggle, setCount, shouldShow }: Memb
 
 function Center(props: React.ComponentProps<typeof styled.div>) {
   return <styled.div display="flex" justifyContent="center" alignItems="center" {...props} />;
+}
+
+function EmptyState({ missingOnly }: { missingOnly: boolean }) {
+  return (
+    <Center
+      gap="1"
+      flexDirection="column"
+      borderColor="board.border"
+      borderRadius="2xl"
+      borderWidth="1px"
+      py="12"
+      px="4"
+      bgColor="board.panel"
+    >
+      <Text fontWeight="bold">
+        {missingOnly ? '未所持なし — コンプ達成！🎉' : '表示するブロマイドがありません'}
+      </Text>
+      {missingOnly ? (
+        <Text color="fg.muted" fontSize="sm">
+          このサイズはすべて揃っています
+        </Text>
+      ) : null}
+    </Center>
+  );
 }
 
 function MemberSections({ grid, ownership, toggle, setCount, shouldShow }: MemberGridProps) {
@@ -393,19 +435,7 @@ function FlatGridView({
   const visible = bromides.filter((b) => shouldShow(b.id));
   const mm = memberMap(catalog);
   if (visible.length === 0) {
-    return (
-      <Center
-        borderColor="board.border"
-        borderRadius="2xl"
-        borderWidth="1px"
-        py="12"
-        bgColor="board.panel"
-      >
-        <Text color="fg.muted" fontSize="sm">
-          表示するブロマイドがありません
-        </Text>
-      </Center>
-    );
+    return <EmptyState missingOnly={bromides.length > 0} />;
   }
   return (
     <Grid gap="3" gridTemplateColumns="repeat(auto-fill, minmax(90px, 1fr))">
@@ -419,7 +449,7 @@ function FlatGridView({
               count={ownership[b.id] ?? 0}
               onToggle={() => toggle(b.id)}
               onSetCount={(n) => setCount(b.id, n)}
-              label={member ? `${member.nickname} No.${b.no}` : `No.${b.no}`}
+              label={member ? `${member.nickname} No.${b.no}` : `集合 No.${b.no}`}
               size="md"
               showStepper
             />

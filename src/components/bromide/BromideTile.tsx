@@ -2,6 +2,7 @@ import { FaCheck, FaMinus, FaPlus } from 'react-icons/fa6';
 import { Box, Center, HStack, Stack, styled } from 'styled-system/jsx';
 import { Text } from '~/components/ui/text';
 import type { Bromide, Member } from '~/types';
+import { readableText } from '~/utils/color';
 
 interface BromideTileProps {
   bromide: Bromide;
@@ -30,6 +31,8 @@ export function BromideTile({
   const owned = count >= 1;
   const isDup = count >= 2;
   const color = member?.color ?? '#2196f3';
+  const ink = readableText(color);
+  const name = label ?? (member ? `${member.nickname} No.${bromide.no}` : `集合 No.${bromide.no}`);
   const sm = size === 'sm';
   const interactive = Boolean(onToggle);
   const stepper = owned && showStepper && Boolean(onSetCount);
@@ -38,10 +41,9 @@ export function BromideTile({
   return (
     <Stack gap="1" w="full" minW="0">
       <Box
-        role={interactive ? 'button' : undefined}
+        role={interactive && !owned ? 'button' : undefined}
         tabIndex={interactive && !owned ? 0 : undefined}
-        aria-pressed={interactive ? owned : undefined}
-        aria-label={label ? `${label}${owned ? `・所持${count}枚` : '・未所持'}` : undefined}
+        aria-label={`${name}${owned ? `・所持${count}枚` : '・未所持'}`}
         onClick={interactive && !owned ? onToggle : undefined}
         onKeyDown={(e) => {
           if (!interactive || owned) return;
@@ -84,14 +86,13 @@ export function BromideTile({
 
         {owned && !hasImg ? (
           <Center
-            style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}
+            style={{ color: ink, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))' }}
             inset="0"
             position="absolute"
-            pb={stepper ? (sm ? '5' : '6') : '0'}
-            color="white"
+            pb={stepper ? (sm ? '5' : '7') : '0'}
           >
             {isDup ? (
-              <Text textStyle="display" color="white" fontSize={sm ? 'lg' : '2xl'} lineHeight="1">
+              <Text textStyle="display" fontSize={sm ? 'lg' : '2xl'} lineHeight="1">
                 ×{count}
               </Text>
             ) : (
@@ -102,7 +103,7 @@ export function BromideTile({
 
         {owned && hasImg ? (
           <Center
-            style={{ backgroundColor: color }}
+            style={{ backgroundColor: color, color: ink }}
             position="absolute"
             top="1"
             right="1"
@@ -110,7 +111,6 @@ export function BromideTile({
             minW="5"
             h="5"
             px="1"
-            color="white"
             fontSize="2xs"
             fontWeight="bold"
           >
@@ -128,7 +128,7 @@ export function BromideTile({
             gap="0"
             justifyContent="space-between"
             alignItems="stretch"
-            h={sm ? '5' : '6'}
+            h={sm ? '5' : '7'}
           >
             <StepButton
               type="button"

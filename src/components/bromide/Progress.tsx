@@ -30,10 +30,7 @@ export function StatPills({ stats, mounted = true }: { stats: OwnStats; mounted?
   return (
     <HStack gap="1.5" flexWrap="wrap">
       <Badge size="sm" variant={mounted && stats.owned > 0 ? 'solid' : 'outline'}>
-        {mounted ? `${stats.owned}/${stats.total}` : `全${stats.total}`}
-      </Badge>
-      <Badge size="sm" variant="subtle">
-        {mounted ? `${stats.percent}%` : '—'}
+        {mounted ? `${stats.owned}/${stats.total}・${stats.percent}%` : `全${stats.total}`}
       </Badge>
       {mounted && stats.missing > 0 ? (
         <Badge size="sm" variant="subtle" colorPalette="gray">

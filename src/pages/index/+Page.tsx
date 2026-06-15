@@ -1,5 +1,6 @@
 import { FaArrowRightArrowLeft, FaHeart, FaLayerGroup, FaRegStar } from 'react-icons/fa6';
 import { Box, Grid, HStack, Stack, Wrap, styled } from 'styled-system/jsx';
+import { readableText } from '~/utils/color';
 import { Button } from '~/components/ui/button';
 import { Heading } from '~/components/ui/heading';
 import { Link } from '~/components/ui/link';
@@ -65,16 +66,15 @@ export default function Page() {
         </Grid>
       </Stack>
 
-      <Grid gap="2" columns={{ base: 2, sm: 4 }}>
+      <Grid gap="2" columns={{ base: 1, sm: 3 }}>
         <ActionButton
           href={toAppUrl('/collections')}
           icon={<FaLayerGroup />}
           label="コレクション"
           primary
         />
-        <ActionButton href={toAppUrl('/mypick')} icon={<FaRegStar />} label="マイコレ" />
+        <ActionButton href={toAppUrl('/mypick')} icon={<FaRegStar />} label="マイコレ・不足" />
         <ActionButton href={toAppUrl('/trade')} icon={<FaArrowRightArrowLeft />} label="譲渡" />
-        <ActionButton href={toAppUrl('/mypick')} icon={<FaHeart />} label="不足を見る" />
       </Grid>
 
       <Stack
@@ -103,8 +103,8 @@ export default function Page() {
                 aria-label={`${m.nickname}を推しに設定`}
                 style={{
                   backgroundColor: oshi ? m.color : 'transparent',
-                  color: oshi ? '#fff' : m.color,
-                  borderColor: m.color
+                  borderColor: m.color,
+                  ...(oshi ? { color: readableText(m.color) } : {})
                 }}
                 cursor="pointer"
                 display="inline-flex"
@@ -114,6 +114,7 @@ export default function Page() {
                 borderWidth="1.5px"
                 py="1"
                 px="2.5"
+                color="fg.default"
                 fontSize="xs"
                 fontWeight="bold"
               >
@@ -130,7 +131,7 @@ export default function Page() {
               return (
                 <HStack key={m.id} gap="3">
                   <styled.span
-                    style={{ backgroundColor: m.color }}
+                    style={{ backgroundColor: m.color, color: readableText(m.color) }}
                     display="inline-flex"
                     justifyContent="center"
                     alignItems="center"
@@ -138,7 +139,6 @@ export default function Page() {
                     minW="20"
                     py="0.5"
                     px="2.5"
-                    color="white"
                     fontSize="xs"
                     fontWeight="bold"
                   >
@@ -213,7 +213,7 @@ function Stat({ label, value }: { label: string; value: string }) {
       <Text textStyle="display" color="accent.default" fontSize="xl" lineHeight="1.1">
         {value}
       </Text>
-      <Text color="fg.muted" fontSize="2xs">
+      <Text color="fg.muted" fontSize="xs">
         {label}
       </Text>
     </Stack>

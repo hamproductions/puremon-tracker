@@ -49,14 +49,15 @@ function methodLabel(method: TradeMethod, mailNote: string): string {
   }
 }
 
-function methodLabelCompact(method: TradeMethod): string {
+function methodLabelCompact(method: TradeMethod, mailNote: string): string {
+  const mail = mailNote.trim() ? `郵送(${mailNote.trim()})` : '郵送';
   switch (method) {
     case 'mail':
-      return '郵送';
+      return mail;
     case 'handover':
       return '手渡し';
     default:
-      return '郵送/手渡し';
+      return `${mail}/手渡し`;
   }
 }
 
@@ -171,7 +172,14 @@ export function buildCompactText(input: TradeInput): string {
     segments.push(`求)${want}`);
   }
 
-  segments.push(methodLabelCompact(conditions.method));
+  segments.push(methodLabelCompact(conditions.method, conditions.mailNote));
+
+  if (conditions.deadline.trim()) {
+    segments.push(`〆${conditions.deadline.trim()}`);
+  }
+  if (conditions.message.trim()) {
+    segments.push(conditions.message.trim());
+  }
 
   const contact = conditions.contact.trim();
   segments.push(contact ? `${contact}までDM` : 'DMください');

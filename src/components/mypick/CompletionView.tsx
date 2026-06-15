@@ -3,7 +3,7 @@ import { Badge } from '~/components/ui/badge';
 import { Card } from '~/components/ui/card';
 import { Text } from '~/components/ui/text';
 import { ProgressBar, StatPills } from '~/components/bromide/Progress';
-import { bromideId } from '~/data/catalog';
+import { bromideId, collectionSizes } from '~/data/catalog';
 import type { Catalog, Collection, OwnershipMap } from '~/types';
 import { collectionStats, memberMap } from '~/utils/stats';
 
@@ -29,20 +29,25 @@ function memberCells(
   memberFilter: Set<string>
 ): MemberCell[] {
   const mm = memberMap(catalog);
+  const sizes = collectionSizes(collection);
   return collection.memberIds
     .filter((id) => memberFilter.size === 0 || memberFilter.has(id))
     .map((id) => {
       const m = mm.get(id);
       let owned = 0;
+      let total = 0;
       for (const no of collection.numbers) {
-        if ((ownership[bromideId(collection.id, id, no)] ?? 0) >= 1) owned += 1;
+        for (const sz of sizes) {
+          total += 1;
+          if ((ownership[bromideId(collection.id, id, no, sz)] ?? 0) >= 1) owned += 1;
+        }
       }
       return {
         id,
         nickname: m?.nickname ?? id,
         color: m?.color ?? '#FF5FA2',
         owned,
-        total: collection.numbers.length
+        total
       };
     });
 }

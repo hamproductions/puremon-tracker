@@ -60,7 +60,7 @@ export const theme: PartialTheme = {
           value: { base: '#f3c969', _dark: '#caa14a' }
         },
         border: {
-          value: { base: '#dcebf7', _dark: '#2a3a4d' }
+          value: { base: '#dcebf7', _dark: '#3a4a5e' }
         }
       }
     }

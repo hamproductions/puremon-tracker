@@ -22,8 +22,10 @@ export function AdminGate() {
             <Box color="accent.default" fontSize="2xl">
               <FaLock />
             </Box>
-            <Card.Title>
-              <Heading fontSize="xl">{message}</Heading>
+            <Card.Title asChild>
+              <Heading as="h2" fontSize="xl">
+                {message}
+              </Heading>
             </Card.Title>
           </Stack>
         </Card.Header>
@@ -46,16 +48,18 @@ export function AdminGate() {
               </Button>
             ) : null}
 
-            <Box borderColor="board.border" borderTopWidth="1px" pt="4">
-              <Stack gap="2">
-                <Switch onCheckedChange={(e) => setLocalAdmin(e.checked)}>
-                  ローカル管理モードを有効化
-                </Switch>
-                <Text color="fg.muted" fontSize="xs">
-                  この端末だけで、ログインなしにコレクションや画像を管理できます。
-                </Text>
-              </Stack>
-            </Box>
+            {!isConfigured ? (
+              <Box borderColor="board.border" borderTopWidth="1px" pt="4">
+                <Stack gap="2">
+                  <Switch onCheckedChange={(e) => setLocalAdmin(e.checked)}>
+                    ローカル管理モードを有効化
+                  </Switch>
+                  <Text color="fg.muted" fontSize="xs">
+                    この端末だけで、ログインなしにコレクションや画像を管理できます。（開発用）
+                  </Text>
+                </Stack>
+              </Box>
+            ) : null}
           </Stack>
         </Card.Body>
       </Card.Root>
