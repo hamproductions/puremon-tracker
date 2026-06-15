@@ -4,50 +4,63 @@ export const theme: PartialTheme = {
   textStyles: {
     display: {
       value: {
-        fontFamily: "'Zen Maru Gothic', 'Outfit', sans-serif",
-        fontWeight: '900',
-        letterSpacing: '0.02em'
+        fontFamily: "'Mochiy Pop P One', 'Noto Sans JP', sans-serif",
+        fontWeight: '400',
+        letterSpacing: '0.01em'
       }
     }
   },
   tokens: {
     fonts: {
-      body: { value: "'Zen Maru Gothic', 'Hiragino Sans', 'Noto Sans JP', sans-serif" },
-      heading: { value: "'Zen Maru Gothic', 'Hiragino Sans', 'Noto Sans JP', sans-serif" }
+      body: { value: "'Noto Sans JP', 'Hiragino Sans', sans-serif" },
+      heading: { value: "'Noto Sans JP', 'Hiragino Sans', sans-serif" }
+    },
+    colors: {
+      candy: {
+        pink: { value: '#ff5fa2' },
+        sky: { value: '#36c5f0' },
+        mint: { value: '#5ad1b0' },
+        lemon: { value: '#ffd23f' },
+        grape: { value: '#9b8cff' }
+      }
     }
   },
   semanticTokens: {
     colors: {
+      brand: {
+        pink: { value: { base: '#ff4f99', _dark: '#ff79b0' } },
+        sky: { value: { base: '#22b8e6', _dark: '#56ccf0' } }
+      },
       board: {
         canvas: {
-          value: { base: '#fff7fb', _dark: '#16101a' }
+          value: { base: '#f3f9ff', _dark: '#0e1622' }
         },
         panel: {
-          value: { base: '#ffffffcc', _dark: '#241c2add' }
+          value: { base: '#ffffffd9', _dark: '#172230dd' }
         },
         panelSolid: {
-          value: { base: '#ffffff', _dark: '#241c2a' }
+          value: { base: '#ffffff', _dark: '#172230' }
         },
         tile: {
-          value: { base: '#fdfaff', _dark: '#2c2333' }
+          value: { base: '#eef6ff', _dark: '#1c2939' }
         },
         owned: {
-          value: { base: '#fde7f1', _dark: '#3a1f31' }
+          value: { base: '#e4f4ff', _dark: '#143049' }
         },
         ownedBorder: {
-          value: { base: '#f5a8cb', _dark: '#cf5f97' }
+          value: { base: '#7fd1f5', _dark: '#3f9fce' }
         },
         missing: {
-          value: { base: '#f4eef2', _dark: '#201a26' }
+          value: { base: '#eef2f7', _dark: '#141c27' }
         },
         dup: {
-          value: { base: '#fff2da', _dark: '#3a2f17' }
+          value: { base: '#fff3dc', _dark: '#3a2f17' }
         },
         dupBorder: {
-          value: { base: '#f0c674', _dark: '#caa14a' }
+          value: { base: '#f3c969', _dark: '#caa14a' }
         },
         border: {
-          value: { base: '#eddbe7', _dark: '#4a3b48' }
+          value: { base: '#dcebf7', _dark: '#2a3a4d' }
         }
       }
     }
@@ -57,6 +70,10 @@ export const theme: PartialTheme = {
       '0%': { transform: 'scale(0.85)', opacity: '0.4' },
       '60%': { transform: 'scale(1.06)' },
       '100%': { transform: 'scale(1)', opacity: '1' }
+    },
+    floaty: {
+      '0%, 100%': { transform: 'translateY(0)' },
+      '50%': { transform: 'translateY(-5px)' }
     }
   },
   recipes: {}

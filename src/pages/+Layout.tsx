@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { BiX } from 'react-icons/bi';
 import {
   FaArrowRightArrowLeft,
-  FaBolt,
   FaCloudArrowUp,
   FaEllipsis,
   FaGear,
@@ -33,7 +32,6 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { path: '/', label: 'ホーム', exact: true, icon: FaHouse },
   { path: '/collections', label: 'コレクション', icon: FaLayerGroup },
-  { path: '/scan', label: 'まとめて登録', icon: FaBolt },
   { path: '/mypick', label: 'マイコレ', icon: FaStar },
   { path: '/trade', label: '譲渡', icon: FaArrowRightArrowLeft },
   { path: '/submit', label: '画像投稿', icon: FaCloudArrowUp },
@@ -85,7 +83,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <Box
         style={{
           background:
-            'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(255,95,162,0.16) 0%, rgba(155,93,229,0.06) 45%, transparent 75%)'
+            'radial-gradient(ellipse 75% 55% at 50% -5%, rgba(54,197,240,0.22) 0%, rgba(255,95,162,0.12) 42%, transparent 78%)'
         }}
         zIndex="0"
         position="fixed"

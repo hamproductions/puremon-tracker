@@ -1,8 +1,8 @@
 import { defineConfig } from '@pandacss/dev';
 import { createPreset } from '@park-ui/panda-preset';
 import { theme } from './src/theme';
-import pink from '@park-ui/panda-preset/colors/pink';
-import mauve from '@park-ui/panda-preset/colors/mauve';
+import sky from '@park-ui/panda-preset/colors/sky';
+import slate from '@park-ui/panda-preset/colors/slate';
 
 const config = defineConfig({
   preflight: true,
@@ -15,9 +15,9 @@ const config = defineConfig({
   presets: [
     '@pandacss/preset-base',
     createPreset({
-      accentColor: pink,
-      grayColor: mauve,
-      radius: 'lg'
+      accentColor: sky,
+      grayColor: slate,
+      radius: 'xl'
     })
   ],
 

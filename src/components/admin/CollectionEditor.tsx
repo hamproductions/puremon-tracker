@@ -14,6 +14,8 @@ import { catalogActions } from '~/hooks/useCatalog';
 import { seedCatalog } from '~/data/catalog';
 import type { BromideSpec, Catalog, Collection, CollectionKind, Member } from '~/types';
 
+import { isSupabaseConfigured } from '~/lib/supabase';
+
 const SEED_IDS = new Set(seedCatalog.collections.map((c) => c.id));
 
 const KIND_ITEMS: { value: CollectionKind; label: string }[] = [
@@ -467,6 +469,7 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
         <Stack gap="2">
           {catalog.collections.map((c) => {
             const custom = !SEED_IDS.has(c.id);
+            const canDelete = custom || isSupabaseConfigured;
             return (
               <HStack
                 key={c.id}
@@ -512,7 +515,7 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
                     <FaPenToSquare />
                     編集
                   </Button>
-                  {custom ? (
+                  {canDelete ? (
                     <Button size="sm" variant="ghost" onClick={() => remove(c)} colorPalette="red">
                       <FaTrash />
                       削除

@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react';
-import { FaArrowLeft, FaCloudArrowUp, FaTableCells, FaUsers } from 'react-icons/fa6';
+import { FaArrowLeft, FaCloudArrowUp, FaImages, FaTableCells, FaUsers } from 'react-icons/fa6';
 import { Box, Grid, HStack, Stack, styled } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
 import { Heading } from '~/components/ui/heading';
 import { Link } from '~/components/ui/link';
 import { SegmentGroup } from '~/components/ui/segment-group';
 import { Switch } from '~/components/ui/switch';
 import { Text } from '~/components/ui/text';
 import { BromideTile } from '~/components/bromide/BromideTile';
+import { PhotoAddDialog } from '~/components/photo/PhotoAddDialog';
 import { ProgressBar, StatPills } from '~/components/bromide/Progress';
+import { useAuth } from '~/hooks/useAuth';
 import type { Bromide, Catalog, Collection, Member } from '~/types';
 import { buildGrid, collectionStats, memberMap } from '~/utils/stats';
 import { toAppUrl } from '~/utils/url';
@@ -52,9 +55,11 @@ export function CollectionDetail({
   toggle,
   setCount
 }: CollectionDetailProps) {
+  const { isAdmin } = useAuth();
   const [missingOnly, setMissingOnly] = useState(false);
   const [byMember, setByMember] = useState(false);
   const [size, setSize] = useState<string | undefined>(undefined);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const grid = useMemo(() => buildGrid(catalog, collection, size), [catalog, collection, size]);
   const stats = collectionStats(catalog, collection.id, ownership);
   const sizeStats = collectionStats(catalog, collection.id, ownership, grid.size);
@@ -193,12 +198,20 @@ export function CollectionDetail({
               </Switch>
             ) : null}
           </HStack>
-          <BulkActions
-            catalog={catalog}
-            collection={collection}
-            ownership={ownership}
-            setCount={setCount}
-          />
+          <HStack gap="2" flexWrap="wrap">
+            {isAdmin ? (
+              <Button size="sm" onClick={() => setPhotoOpen(true)}>
+                <FaImages />
+                写真を追加
+              </Button>
+            ) : null}
+            <BulkActions
+              catalog={catalog}
+              collection={collection}
+              ownership={ownership}
+              setCount={setCount}
+            />
+          </HStack>
         </HStack>
       </Stack>
 
@@ -230,6 +243,15 @@ export function CollectionDetail({
           shouldShow={shouldShow}
         />
       )}
+
+      {isAdmin ? (
+        <PhotoAddDialog
+          catalog={catalog}
+          collection={collection}
+          open={photoOpen}
+          onOpenChange={setPhotoOpen}
+        />
+      ) : null}
     </Stack>
   );
 }
