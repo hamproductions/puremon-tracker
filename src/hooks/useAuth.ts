@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured } from '~/lib/supabase';
 import { localAdminStore, useStore } from '~/data/store';
+import { clearE2EProfile, readE2EProfile } from '~/lib/e2eAuth';
 import type { Profile } from '~/types';
 import { toAppUrl } from '~/utils/url';
 
@@ -31,11 +32,18 @@ function toProfile(user: User | null | undefined): Profile | null {
 }
 
 export function useAuth() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(isSupabaseConfigured);
+  const initialE2EProfile = readE2EProfile();
+  const [profile, setProfile] = useState<Profile | null>(initialE2EProfile);
+  const [loading, setLoading] = useState(isSupabaseConfigured && !initialE2EProfile);
   const localAdmin = useStore(localAdminStore);
 
   useEffect(() => {
+    const e2eProfile = readE2EProfile();
+    if (e2eProfile) {
+      setProfile(e2eProfile);
+      setLoading(false);
+      return;
+    }
     const sb = getSupabase();
     if (!sb) {
       setLoading(false);
@@ -63,6 +71,7 @@ export function useAuth() {
   };
 
   const signOut = async () => {
+    clearE2EProfile();
     const sb = getSupabase();
     await sb?.auth.signOut();
     setProfile(null);

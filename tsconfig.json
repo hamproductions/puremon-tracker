@@ -22,6 +22,6 @@
     "paths": { "~/*": ["./src/*"], "styled-system/*": ["./styled-system/*"] }
   },
   "include": ["src", "styled-system", "scripts"],
-  "exclude": ["scripts/internal"],
+  "exclude": ["scripts/internal", "**/*.test.ts", "**/*.test.tsx"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

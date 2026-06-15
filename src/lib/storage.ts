@@ -1,4 +1,5 @@
 import { getSupabase } from '~/lib/supabase';
+import { hasE2EProfile } from '~/lib/e2eAuth';
 
 export async function prepareImageBlob(file: File, maxSize = 1000): Promise<Blob> {
   if (typeof window === 'undefined' || typeof document === 'undefined') return file;
@@ -25,46 +26,32 @@ export async function prepareImageBlob(file: File, maxSize = 1000): Promise<Blob
   }
 }
 
-export function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error('read failed'));
-    reader.readAsDataURL(blob);
-  });
-}
-
 export async function uploadBromideImage(
   file: File,
   bromideId: string
-): Promise<{ url: string; mode: 'cloud' | 'local' }> {
+): Promise<{ url: string; mode: 'cloud' }> {
   const blob = await prepareImageBlob(file);
+  if (hasE2EProfile()) return { url: await blobToDataUrl(blob), mode: 'cloud' };
+
   const sb = getSupabase();
 
-  if (sb) {
-    try {
-      const {
-        data: { session }
-      } = await sb.auth.getSession();
-      if (session) {
-        const path = `${bromideId}/${Date.now()}.jpg`;
-        const { error } = await sb.storage
-          .from('bromides')
-          .upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
-        if (!error) {
-          const {
-            data: { publicUrl }
-          } = sb.storage.from('bromides').getPublicUrl(path);
-          if (publicUrl) return { url: publicUrl, mode: 'cloud' };
-        }
-      }
-    } catch {
-      /* fall through to local */
-    }
-  }
+  if (!sb) throw new Error('supabase required');
+  const {
+    data: { session }
+  } = await sb.auth.getSession();
+  if (!session) throw new Error('login required');
 
-  const url = await blobToDataUrl(blob);
-  return { url, mode: 'local' };
+  const path = `${bromideId}/${Date.now()}.jpg`;
+  const { error } = await sb.storage
+    .from('bromides')
+    .upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+  if (error) throw error;
+
+  const {
+    data: { publicUrl }
+  } = sb.storage.from('bromides').getPublicUrl(path);
+  if (!publicUrl) throw new Error('public url missing');
+  return { url: publicUrl, mode: 'cloud' };
 }
 
 type Bitmap = ImageBitmap | HTMLImageElement;
@@ -97,5 +84,14 @@ function close(bitmap: Bitmap) {
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.82);
+  });
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error('image encode failed'));
+    reader.readAsDataURL(blob);
   });
 }

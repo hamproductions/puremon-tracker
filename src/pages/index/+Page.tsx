@@ -44,6 +44,18 @@ export default function Page() {
   );
   const almostIds = new Set(almostThere.map((x) => x.c.id));
   const recent = colStats.filter((x) => !almostIds.has(x.c.id)).slice(0, 3);
+  const imageNeeded = useMemo(
+    () =>
+      catalog.collections
+        .map((c) => ({
+          c,
+          missing: catalog.bromides.filter((b) => b.collectionId === c.id && !b.imageUrl).length
+        }))
+        .filter((x) => x.missing > 0)
+        .sort((a, b) => b.missing - a.missing)
+        .slice(0, 3),
+    [catalog]
+  );
 
   const memberStats = useMemo(
     () =>
@@ -233,6 +245,53 @@ export default function Page() {
                 ownership={ownership}
                 mounted={mounted}
               />
+            ))}
+          </Grid>
+        </Stack>
+      ) : null}
+
+      {imageNeeded.length > 0 ? (
+        <Stack gap="2.5">
+          <HStack gap="2" alignItems="baseline" px="1">
+            <Heading fontSize="md">画像募集中</Heading>
+            <Text color="fg.muted" fontSize="xs">
+              足りない画像の投稿先
+            </Text>
+          </HStack>
+          <Grid gap="3" alignItems="start" columns={{ base: 1, sm: 2, lg: 3 }}>
+            {imageNeeded.map(({ c, missing }) => (
+              <Link
+                key={c.id}
+                href={toAppUrl(`/collections/?c=${c.id}`)}
+                _hover={{ textDecoration: 'none' }}
+              >
+                <Stack
+                  gap="2"
+                  borderColor="board.border"
+                  borderRadius="lg"
+                  borderWidth="1px"
+                  p="3"
+                  bgColor="board.panelSolid"
+                  _hover={{ borderColor: 'accent.default', transform: 'translateY(-1px)' }}
+                >
+                  <HStack gap="2" justifyContent="space-between" alignItems="center">
+                    <HStack gap="1.5" minW="0">
+                      <Box color="accent.text">
+                        <FaImage size={13} />
+                      </Box>
+                      <Text fontSize="sm" fontWeight="bold" truncate>
+                        {c.title}
+                      </Text>
+                    </HStack>
+                    <Badge size="sm" variant="subtle" colorPalette="amber">
+                      {missing}枚
+                    </Badge>
+                  </HStack>
+                  <Text color="fg.muted" fontSize="xs">
+                    コレクションを開いて、画像のないカードから投稿できます。
+                  </Text>
+                </Stack>
+              </Link>
             ))}
           </Grid>
         </Stack>

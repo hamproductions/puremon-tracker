@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FaArrowLeft,
   FaCheck,
@@ -17,10 +17,10 @@ import { Switch } from '~/components/ui/switch';
 import { Text } from '~/components/ui/text';
 import { BromideTile } from '~/components/bromide/BromideTile';
 import { ProgressBar, StatPills } from '~/components/bromide/Progress';
+import { PhotoAddDialog } from '~/components/photo/PhotoAddDialog';
 import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
 import { catalogActions } from '~/hooks/useCatalog';
-import { uploadBromideImage } from '~/lib/storage';
 import type { Bromide, Catalog, Collection, Member } from '~/types';
 import { buildGrid, collectionStats, memberMap } from '~/utils/stats';
 import { toAppUrl } from '~/utils/url';
@@ -36,6 +36,25 @@ interface CollectionDetailProps {
 }
 
 const CELL_MIN = '96px';
+type GridSize = 'compact' | 'normal' | 'large';
+
+const GRID_SIZE_LABELS: Record<GridSize, string> = {
+  compact: '小',
+  normal: '中',
+  large: '大'
+};
+
+const GRID_CELL_MIN: Record<GridSize, string> = {
+  compact: '80px',
+  normal: '104px',
+  large: '136px'
+};
+
+const TABLE_CELL_MIN: Record<GridSize, string> = {
+  compact: CELL_MIN,
+  normal: '120px',
+  large: '148px'
+};
 
 export function CollectionDetail({
   catalog,
@@ -45,36 +64,30 @@ export function CollectionDetail({
   toggle,
   setCount
 }: CollectionDetailProps) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
   const { toast } = useToaster();
   const [missingOnly, setMissingOnly] = useState(false);
   const [byMember, setByMember] = useState(false);
   const [byMemberAuto, setByMemberAuto] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [size, setSize] = useState<string | undefined>(undefined);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const targetRef = useRef<string | null>(null);
+  const [gridSize, setGridSize] = useState<GridSize>(
+    collection.kind === 'mixed' ? 'large' : 'normal'
+  );
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
   const grid = useMemo(() => buildGrid(catalog, collection, size), [catalog, collection, size]);
 
   const requestImage = (bromideId: string) => {
-    targetRef.current = bromideId;
-    fileRef.current?.click();
-  };
-
-  const onImageFile = async (file: File) => {
-    const bromideId = targetRef.current;
-    if (!bromideId) return;
-    try {
-      const { url, mode } = await uploadBromideImage(file, bromideId);
-      catalogActions.setBromideImage(bromideId, url);
+    if (!profile) {
       toast({
-        title: '画像を登録しました',
-        description: mode === 'cloud' ? 'クラウドに保存しました' : 'この端末に保存しました',
-        type: 'success'
+        title: adminEdit ? '画像登録にはログインが必要です' : '画像投稿にはログインが必要です',
+        type: 'error'
       });
-    } catch {
-      toast({ title: '画像の登録に失敗しました', type: 'error' });
+      return;
     }
+    setPhotoTargetId(bromideId);
+    setPhotoOpen(true);
   };
 
   const adminEdit = isAdmin && editMode;
@@ -188,17 +201,27 @@ export function CollectionDetail({
               </Button>
             ) : null}
           </HStack>
-          <styled.input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void onImageFile(file);
-              e.target.value = '';
-            }}
-            display="none"
-          />
+          <HStack gap="2" flexWrap="wrap">
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => {
+                if (!profile) {
+                  toast({
+                    title: adminEdit
+                      ? '画像登録にはログインが必要です'
+                      : '画像投稿にはログインが必要です',
+                    type: 'error'
+                  });
+                  return;
+                }
+                setPhotoTargetId(null);
+                setPhotoOpen(true);
+              }}
+            >
+              画像をまとめて追加
+            </Button>
+          </HStack>
           {adminEdit && isMixed ? (
             <Text color="accent.text" fontSize="xs">
               カードをタップしてメンバーを変更、× で削除、末尾の「＋」で追加できます。
@@ -302,6 +325,35 @@ export function CollectionDetail({
               </HStack>
             </Switch>
           ) : null}
+          <HStack gap="2" alignItems="center" flexWrap="wrap">
+            <Text fontSize="sm">表示サイズ</Text>
+            <HStack gap="1" borderRadius="lg" p="1" bgColor="bg.muted">
+              {(Object.keys(GRID_SIZE_LABELS) as GridSize[]).map((value) => (
+                <styled.button
+                  key={value}
+                  type="button"
+                  onClick={() => setGridSize(value)}
+                  aria-pressed={gridSize === value}
+                  cursor="pointer"
+                  borderRadius="md"
+                  minW="9"
+                  py="1"
+                  px="2.5"
+                  color={gridSize === value ? 'accent.fg' : 'fg.muted'}
+                  fontSize="xs"
+                  fontWeight="bold"
+                  bgColor={gridSize === value ? 'accent.default' : 'transparent'}
+                  _hover={
+                    gridSize === value
+                      ? undefined
+                      : { bgColor: 'bg.emphasized', color: 'fg.default' }
+                  }
+                >
+                  {GRID_SIZE_LABELS[value]}
+                </styled.button>
+              ))}
+            </HStack>
+          </HStack>
         </HStack>
       </Stack>
 
@@ -316,6 +368,7 @@ export function CollectionDetail({
             shouldShow={shouldShow}
             adminEdit={adminEdit}
             requestImage={requestImage}
+            gridSize={gridSize}
             grid={grid}
           />
         ) : (
@@ -326,6 +379,7 @@ export function CollectionDetail({
             shouldShow={shouldShow}
             adminEdit={adminEdit}
             requestImage={requestImage}
+            gridSize={gridSize}
             grid={grid}
           />
         )
@@ -339,6 +393,7 @@ export function CollectionDetail({
           shouldShow={shouldShow}
           adminEdit={adminEdit}
           requestImage={requestImage}
+          gridSize={gridSize}
           onEditItem={
             adminEdit && isMixed ? (b) => setEditTarget({ mode: 'retag', bromide: b }) : undefined
           }
@@ -438,6 +493,15 @@ export function CollectionDetail({
           </Dialog.Content>
         </Dialog.Positioner>
       </Dialog.Root>
+
+      <PhotoAddDialog
+        catalog={catalog}
+        collection={collection}
+        open={photoOpen}
+        onOpenChange={setPhotoOpen}
+        initialTargetId={photoTargetId}
+        adminEdit={adminEdit}
+      />
     </Stack>
   );
 }
@@ -449,6 +513,7 @@ interface GridViewProps {
   shouldShow: (id?: string) => boolean;
   adminEdit?: boolean;
   requestImage?: (id: string) => void;
+  gridSize: GridSize;
 }
 
 interface MemberGridProps extends GridViewProps {
@@ -466,7 +531,8 @@ function MemberGridTable({
   setCount,
   shouldShow,
   adminEdit,
-  requestImage
+  requestImage,
+  gridSize
 }: MemberGridProps) {
   const visibleNumbers = grid.numbers.filter((no) =>
     grid.members.some((m) => {
@@ -485,7 +551,7 @@ function MemberGridTable({
     >
       <Box
         style={{
-          gridTemplateColumns: `56px repeat(${grid.members.length}, minmax(${CELL_MIN}, 1fr))`
+          gridTemplateColumns: `56px repeat(${grid.members.length}, minmax(${TABLE_CELL_MIN[gridSize]}, 1fr))`
         }}
         display="grid"
         minW="fit-content"
@@ -613,7 +679,8 @@ function MemberSections({
   setCount,
   shouldShow,
   adminEdit,
-  requestImage
+  requestImage,
+  gridSize
 }: MemberGridProps) {
   return (
     <Stack gap="4">
@@ -636,7 +703,12 @@ function MemberSections({
               <Box style={{ backgroundColor: m.color }} borderRadius="full" w="3" h="3" />
               <Text fontWeight="bold">{m.name}</Text>
             </HStack>
-            <Grid gap="3" gridTemplateColumns="repeat(auto-fill, minmax(80px, 1fr))">
+            <Grid
+              style={{
+                gridTemplateColumns: `repeat(auto-fill, minmax(${GRID_CELL_MIN[gridSize]}, 1fr))`
+              }}
+              gap="3"
+            >
               {cells.map((b) => (
                 <Stack key={b.id} gap="1.5">
                   <BromideTile
@@ -678,6 +750,7 @@ function FlatGridView({
   shouldShow,
   adminEdit,
   requestImage,
+  gridSize,
   onEditItem,
   onRemoveItem,
   onAddCard
@@ -688,7 +761,12 @@ function FlatGridView({
     return <EmptyState missingOnly={bromides.length > 0} />;
   }
   return (
-    <Grid gap="3" gridTemplateColumns="repeat(auto-fill, minmax(90px, 1fr))">
+    <Grid
+      style={{
+        gridTemplateColumns: `repeat(auto-fill, minmax(${GRID_CELL_MIN[gridSize]}, 1fr))`
+      }}
+      gap="3"
+    >
       {visible.map((b) => {
         const member = b.memberId ? (mm.get(b.memberId) ?? null) : null;
         return (

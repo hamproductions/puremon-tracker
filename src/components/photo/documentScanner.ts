@@ -288,18 +288,70 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
   });
 }
 
+function simpleScanCanvas(source: HTMLCanvasElement): HTMLCanvasElement | null {
+  const ctx = source.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+
+  const { width, height } = source;
+  const data = ctx.getImageData(0, 0, width, height).data;
+  let minX = width;
+  let minY = height;
+  let maxX = 0;
+  let maxY = 0;
+  let count = 0;
+
+  for (let y = 0; y < height; y += 2) {
+    for (let x = 0; x < width; x += 2) {
+      const i = (y * width + x) * 4;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const luma = r * 0.299 + g * 0.587 + b * 0.114;
+      const spread = Math.max(r, g, b) - Math.min(r, g, b);
+      if (luma > 172 && spread < 72) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+        count += 1;
+      }
+    }
+  }
+
+  const sampledArea = Math.ceil(width / 2) * Math.ceil(height / 2);
+  if (count < sampledArea * MIN_AREA_RATIO || maxX <= minX || maxY <= minY) return null;
+
+  const pad = Math.round(Math.min(width, height) * 0.01);
+  const sx = Math.max(0, minX - pad);
+  const sy = Math.max(0, minY - pad);
+  const sw = Math.min(width - sx, maxX - minX + pad * 2);
+  const sh = Math.min(height - sy, maxY - minY + pad * 2);
+  if (sw < width * 0.35 || sh < height * 0.35) return null;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = sw;
+  canvas.height = sh;
+  const out = canvas.getContext('2d');
+  if (!out) return null;
+  out.drawImage(source, sx, sy, sw, sh, 0, 0, sw, sh);
+  return canvas;
+}
+
 export async function scanDocument(imageSrc: string, signal?: CancelToken): Promise<Blob | null> {
   try {
     if (signal?.cancelled) return null;
-
-    const cv = (await loadOpenCv()) as any;
-    if (signal?.cancelled || !isRuntimeReady(cv)) return null;
 
     const image = await loadImage(imageSrc);
     if (signal?.cancelled) return null;
 
     const work = toWorkCanvas(image);
     if (!work || signal?.cancelled) return null;
+
+    const simple = simpleScanCanvas(work);
+    if (simple && !signal?.cancelled) return canvasToBlob(simple);
+
+    const cv = (await loadOpenCv()) as any;
+    if (signal?.cancelled || !isRuntimeReady(cv)) return null;
 
     const corners = findLargestQuad(cv, work);
     if (!corners || signal?.cancelled) return null;

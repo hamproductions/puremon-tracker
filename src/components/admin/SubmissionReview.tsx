@@ -8,6 +8,7 @@ import { StatusBadge } from '~/components/submit/StatusBadge';
 import { useToaster } from '~/context/ToasterContext';
 import { catalogActions } from '~/hooks/useCatalog';
 import { submissionsStore, useStore } from '~/data/store';
+import { hasE2EProfile } from '~/lib/e2eAuth';
 import { getSupabase } from '~/lib/supabase';
 import type { Catalog, Submission, SubmissionStatus } from '~/types';
 import { bromideLabel } from '~/utils/stats';
@@ -69,36 +70,42 @@ export function SubmissionReview({ catalog }: { catalog: Catalog }) {
   const pending = merged.filter((s) => s.status === 'pending');
   const processed = merged.filter((s) => s.status !== 'pending').slice(0, 12);
 
-  const setStatus = (sub: Submission, status: SubmissionStatus) => {
+  const setStatus = async (sub: Submission, status: SubmissionStatus) => {
+    const sb = getSupabase();
+    if (sb && !hasE2EProfile()) {
+      const { error } = await sb.from('submissions').update({ status }).eq('id', sub.id);
+      if (error) throw error;
+    }
+
     submissionsStore.update((prev) => {
       const exists = prev.some((s) => s.id === sub.id);
       if (exists) return prev.map((s) => (s.id === sub.id ? { ...s, status } : s));
       return [{ ...sub, status }, ...prev];
     });
     setRemote((prev) => prev.filter((s) => s.id !== sub.id));
+  };
 
-    const sb = getSupabase();
-    if (sb) {
-      void sb
-        .from('submissions')
-        .update({ status })
-        .eq('id', sub.id)
-        .then(
-          () => undefined,
-          () => undefined
-        );
+  const approve = async (sub: Submission) => {
+    const saved = await catalogActions.setBromideImage(sub.bromideId, sub.imageUrl);
+    if (!saved) {
+      toast({ title: '承認に失敗しました', type: 'error' });
+      return;
+    }
+    try {
+      await setStatus(sub, 'approved');
+      toast({ title: '承認しました', type: 'success' });
+    } catch {
+      toast({ title: '承認ステータスの更新に失敗しました', type: 'error' });
     }
   };
 
-  const approve = (sub: Submission) => {
-    catalogActions.setBromideImage(sub.bromideId, sub.imageUrl);
-    setStatus(sub, 'approved');
-    toast({ title: '承認しました', type: 'success' });
-  };
-
-  const reject = (sub: Submission) => {
-    setStatus(sub, 'rejected');
-    toast({ title: '却下しました', type: 'info' });
+  const reject = async (sub: Submission) => {
+    try {
+      await setStatus(sub, 'rejected');
+      toast({ title: '却下しました', type: 'info' });
+    } catch {
+      toast({ title: '却下に失敗しました', type: 'error' });
+    }
   };
 
   return (
@@ -154,7 +161,7 @@ export function SubmissionReview({ catalog }: { catalog: Catalog }) {
                       {bromide ? bromideLabel(catalog, bromide) : s.bromideId}
                     </Text>
                     <Text color="fg.muted" fontSize="xs" truncate>
-                      {s.submittedHandle ? `@${s.submittedHandle}` : '匿名（ローカル）'}
+                      {s.submittedHandle ? `@${s.submittedHandle}` : 'ログインユーザー'}
                     </Text>
                     {s.note ? (
                       <Text color="fg.default" fontSize="xs" lineClamp={2}>
@@ -162,11 +169,16 @@ export function SubmissionReview({ catalog }: { catalog: Catalog }) {
                       </Text>
                     ) : null}
                     <HStack gap="2" pt="1">
-                      <Button size="sm" onClick={() => approve(s)} colorPalette="green" flex="1">
+                      <Button
+                        size="sm"
+                        onClick={() => void approve(s)}
+                        colorPalette="green"
+                        flex="1"
+                      >
                         <FaCheck />
                         承認
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => reject(s)} flex="1">
+                      <Button size="sm" variant="outline" onClick={() => void reject(s)} flex="1">
                         <FaXmark />
                         却下
                       </Button>

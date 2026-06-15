@@ -101,7 +101,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Container px="4">
           <HStack gap="3" justifyContent="space-between" alignItems="center" h="14">
             <HStack gap="5" alignItems="center" minW="0">
-              <Link href={toAppUrl('/')} flexShrink="0" _hover={{ textDecoration: 'none' }}>
+              <Link
+                href={toAppUrl('/')}
+                aria-label="ピュアリーモンスター ホーム"
+                flexShrink="0"
+                _hover={{ textDecoration: 'none' }}
+              >
                 <Brand />
               </Link>
               <HStack hideBelow="md" gap="0.5">

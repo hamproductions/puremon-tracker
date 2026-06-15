@@ -194,10 +194,10 @@ export function BromideTile({
           </HStack>
         ) : null}
 
-        {!hasImg && onAddImage ? (
+        {(!hasImg || adminEdit) && onAddImage ? (
           <styled.button
             type="button"
-            aria-label="画像を追加"
+            aria-label={hasImg ? '画像を差し替え' : '画像を追加'}
             onClick={(e) => {
               e.stopPropagation();
               onAddImage();
@@ -221,7 +221,7 @@ export function BromideTile({
             _hover={{ bgColor: 'rgba(0,0,0,0.75)', opacity: 1 }}
           >
             <FaCamera size={9} />
-            {sm ? null : '画像'}
+            {sm ? null : hasImg ? '差替' : '画像'}
           </styled.button>
         ) : null}
 

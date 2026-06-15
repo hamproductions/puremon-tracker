@@ -13,7 +13,7 @@ and offline** — your data is saved locally; Supabase is an optional sync/crowd
   per-member completion, and a share-ready poster export (PNG).
 - **譲渡** — generates idiomatic 譲/求 trade text from your duplicates + missing, with copy & X-share,
   conditions (郵送/手渡し, 〆切, 連絡先), preset formats, and saved drafts (マイ募集).
-- **画像投稿** — crowdsource bromide images; submissions go to admin approval (or save locally).
+- **画像投稿** — logged-in users can contribute missing bromide images; submissions go to admin approval.
 - **管理** — admins create collections, register bromide images, and approve submissions.
 - Local-first + offline; X(Twitter) login, cloud image storage and cross-user crowdsourcing when
   Supabase is configured.
@@ -58,7 +58,7 @@ Once configured, the app fetches the catalog from Supabase (cached in `localStor
 everything an admin does on `/admin` — create/edit collections, register/approve bromide images — writes
 to the server, so all users see it. Anonymous visitors can still browse (public read), and the app stays
 usable offline from cache. Without Supabase, `/admin` → **ローカル管理モードを有効化** edits a
-device-local catalog instead (handy for trying it out).
+device-local catalog instead (handy for trying it out). Image upload requires Supabase login.
 
 ## Local Supabase (dev)
 

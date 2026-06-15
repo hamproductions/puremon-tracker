@@ -55,7 +55,7 @@ export function AdminGate() {
                     ローカル管理モードを有効化
                   </Switch>
                   <Text color="fg.muted" fontSize="xs">
-                    この端末だけで、ログインなしにコレクションや画像を管理できます。（開発用）
+                    この端末だけで、ログインなしにコレクションを管理できます。（開発用）
                   </Text>
                 </Stack>
               </Box>

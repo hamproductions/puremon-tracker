@@ -15,6 +15,7 @@ import {
   remoteCatalogStore,
   useStore
 } from '~/data/store';
+import { hasE2EProfile } from '~/lib/e2eAuth';
 import { isSupabaseConfigured } from '~/lib/supabase';
 import type { Catalog, Collection, Member } from '~/types';
 
@@ -66,10 +67,11 @@ export function useCatalog(): Catalog {
   }, []);
 
   return useMemo(() => {
+    const e2e = hasE2EProfile();
     const baseMembers = remote && remote.members.length > 0 ? remote.members : seedCatalog.members;
     const baseCollections = remote
       ? remote.collections
-      : isSupabaseConfigured
+      : isSupabaseConfigured && !e2e
         ? []
         : seedCatalog.collections;
     const baseImages = remote?.images ?? {};
@@ -124,23 +126,23 @@ export const catalogActions = {
     }
   },
   async setBromideImage(bromideId: string, imageUrl: string | null) {
-    bromideImagesStore.update((images) => {
-      const next = { ...images };
-      if (imageUrl) next[bromideId] = imageUrl;
-      else delete next[bromideId];
-      return next;
-    });
-    if (!isSupabaseConfigured) return;
+    if (hasE2EProfile()) {
+      bromideImagesStore.update((images) => {
+        const next = { ...images };
+        if (imageUrl) next[bromideId] = imageUrl;
+        else delete next[bromideId];
+        return next;
+      });
+      return true;
+    }
+    if (!isSupabaseConfigured) return false;
     try {
       await setBromideImageRemote(bromideId, imageUrl);
       await refreshRemoteCatalog();
-      bromideImagesStore.update((images) => {
-        const next = { ...images };
-        delete next[bromideId];
-        return next;
-      });
+      return true;
     } catch (e) {
       console.error('bromide image set failed', e);
+      return false;
     }
   }
 };

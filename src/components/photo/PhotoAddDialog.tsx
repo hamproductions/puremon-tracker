@@ -20,8 +20,10 @@ import { SegmentGroup } from '~/components/ui/segment-group';
 import { Spinner } from '~/components/ui/spinner';
 import { Text } from '~/components/ui/text';
 import { useToaster } from '~/context/ToasterContext';
+import { useAuth } from '~/hooks/useAuth';
 import { catalogActions } from '~/hooks/useCatalog';
 import { uploadBromideImage } from '~/lib/storage';
+import { createImageSubmission, saveImageSubmission } from '~/lib/submissions';
 import type { Bromide, Catalog, Collection } from '~/types';
 import { bromideLabel, bromidesByCollection, memberColor } from '~/utils/stats';
 import { getCroppedBlob } from './cropImage';
@@ -36,6 +38,8 @@ interface PhotoAddDialogProps {
   collection: Collection;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialTargetId?: string | null;
+  adminEdit?: boolean;
 }
 
 interface PickedImage {
@@ -45,7 +49,14 @@ interface PickedImage {
 
 type Phase = 'setup' | 'cropping' | 'summary';
 
-export function PhotoAddDialog({ catalog, collection, open, onOpenChange }: PhotoAddDialogProps) {
+export function PhotoAddDialog({
+  catalog,
+  collection,
+  open,
+  onOpenChange,
+  initialTargetId = null,
+  adminEdit = false
+}: PhotoAddDialogProps) {
   return (
     <Dialog.Root open={open} onOpenChange={(e) => onOpenChange(e.open)} lazyMount unmountOnExit>
       <Dialog.Backdrop />
@@ -59,7 +70,13 @@ export function PhotoAddDialog({ catalog, collection, open, onOpenChange }: Phot
           bgColor="board.panelSolid"
           overflow="hidden"
         >
-          <PhotoAddBody catalog={catalog} collection={collection} onOpenChange={onOpenChange} />
+          <PhotoAddBody
+            catalog={catalog}
+            collection={collection}
+            onOpenChange={onOpenChange}
+            initialTargetId={initialTargetId}
+            adminEdit={adminEdit}
+          />
         </Dialog.Content>
       </Dialog.Positioner>
     </Dialog.Root>
@@ -69,13 +86,18 @@ export function PhotoAddDialog({ catalog, collection, open, onOpenChange }: Phot
 function PhotoAddBody({
   catalog,
   collection,
-  onOpenChange
+  onOpenChange,
+  initialTargetId,
+  adminEdit
 }: {
   catalog: Catalog;
   collection: Collection;
   onOpenChange: (open: boolean) => void;
+  initialTargetId: string | null;
+  adminEdit: boolean;
 }) {
   const { toast } = useToaster();
+  const { profile } = useAuth();
   const hasSizes = (collection.sizes?.length ?? 0) > 0;
   const [size, setSize] = useState<string | null>(
     hasSizes ? (collection.sizes?.[0] ?? null) : null
@@ -95,8 +117,12 @@ function PhotoAddBody({
 
   useEffect(() => {
     if (touched) return;
+    if (initialTargetId && targets.some((b) => b.id === initialTargetId)) {
+      setQueue([initialTargetId]);
+      return;
+    }
     setQueue(targets.filter((b) => !b.imageUrl).map((b) => b.id));
-  }, [targets, touched]);
+  }, [initialTargetId, targets, touched]);
 
   const targetById = useMemo(() => new Map(targets.map((b) => [b.id, b])), [targets]);
   const queueBromides = useMemo(
@@ -134,7 +160,8 @@ function PhotoAddBody({
     setPicked([]);
     setSavedCount(saved);
     setPhase('summary');
-    if (saved > 0) toast({ title: `${saved}枚を登録しました`, type: 'success' });
+    if (saved > 0)
+      toast({ title: `${saved}枚を${adminEdit ? '登録' : '投稿'}しました`, type: 'success' });
   };
 
   return (
@@ -188,6 +215,8 @@ function PhotoAddBody({
           savedCount={savedCount}
           setSavedCount={setSavedCount}
           onFinish={finishBatch}
+          profile={profile}
+          adminEdit={adminEdit}
         />
       )}
 
@@ -196,6 +225,7 @@ function PhotoAddBody({
           catalog={catalog}
           savedCount={savedCount}
           remaining={queueBromides}
+          adminEdit={adminEdit}
           onAddMore={() => setPhase('setup')}
           onClose={resetAndClose}
         />
@@ -456,7 +486,9 @@ function CropStep({
   queueBromides,
   savedCount,
   setSavedCount,
-  onFinish
+  onFinish,
+  profile,
+  adminEdit
 }: {
   catalog: Catalog;
   picked: PickedImage[];
@@ -466,6 +498,8 @@ function CropStep({
   savedCount: number;
   setSavedCount: (n: number) => void;
   onFinish: (saved: number) => void;
+  profile: ReturnType<typeof useAuth>['profile'];
+  adminEdit: boolean;
 }) {
   const { toast } = useToaster();
   const current = picked[cropIndex];
@@ -565,7 +599,14 @@ function CropStep({
       const blob = await getCroppedBlob(activeSrc, areaPixels);
       const file = new File([blob], `${target.id}.jpg`, { type: 'image/jpeg' });
       const { url } = await uploadBromideImage(file, target.id);
-      await catalogActions.setBromideImage(target.id, url);
+      if (adminEdit) {
+        const saved = await catalogActions.setBromideImage(target.id, url);
+        if (!saved) throw new Error('image registration failed');
+      } else {
+        await saveImageSubmission(
+          createImageSubmission({ bromideId: target.id, imageUrl: url, profile })
+        );
+      }
       const saved = savedCount + 1;
       setSavedCount(saved);
       advance(saved);
@@ -719,12 +760,14 @@ function SummaryStep({
   catalog,
   savedCount,
   remaining,
+  adminEdit,
   onAddMore,
   onClose
 }: {
   catalog: Catalog;
   savedCount: number;
   remaining: Bromide[];
+  adminEdit: boolean;
   onAddMore: () => void;
   onClose: () => void;
 }) {
@@ -743,7 +786,9 @@ function SummaryStep({
         bgColor="board.owned"
       >
         <FaCheckDouble size={26} color="var(--colors-accent-text)" />
-        <Heading fontSize="xl">{savedCount}枚を登録しました</Heading>
+        <Heading fontSize="xl">
+          {savedCount}枚を{adminEdit ? '登録' : '投稿'}しました
+        </Heading>
         {left.length > 0 ? (
           <Text color="fg.muted" fontSize="sm">
             残り {left.length}枚 の登録先が未登録のままです。
