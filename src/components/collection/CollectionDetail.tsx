@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   FaArrowLeft,
   FaCheck,
+  FaGear,
   FaPenToSquare,
   FaPlus,
   FaTableCells,
@@ -35,26 +36,11 @@ interface CollectionDetailProps {
   setCount: (id: string, n: number) => void;
 }
 
-const CELL_MIN = '96px';
-type GridSize = 'compact' | 'normal' | 'large';
-
-const GRID_SIZE_LABELS: Record<GridSize, string> = {
-  compact: '小',
-  normal: '中',
-  large: '大'
-};
-
-const GRID_CELL_MIN: Record<GridSize, string> = {
-  compact: '80px',
-  normal: '104px',
-  large: '136px'
-};
-
-const TABLE_CELL_MIN: Record<GridSize, string> = {
-  compact: CELL_MIN,
-  normal: '120px',
-  large: '148px'
-};
+const GRID_SIZE_PRESETS = [
+  { label: '小', value: 84 },
+  { label: '中', value: 116 },
+  { label: '大', value: 156 }
+];
 
 export function CollectionDetail({
   catalog,
@@ -71,9 +57,7 @@ export function CollectionDetail({
   const [byMemberAuto, setByMemberAuto] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [size, setSize] = useState<string | undefined>(undefined);
-  const [gridSize, setGridSize] = useState<GridSize>(
-    collection.kind === 'mixed' ? 'large' : 'normal'
-  );
+  const [gridCellMin, setGridCellMin] = useState(collection.kind === 'mixed' ? 148 : 116);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
   const grid = useMemo(() => buildGrid(catalog, collection, size), [catalog, collection, size]);
@@ -131,6 +115,13 @@ export function CollectionDetail({
     }
     updateItems([...(collection.items ?? []), { memberId, no }]);
     toast({ title: 'カードを追加しました', type: 'success' });
+  };
+  const removeImage = async (target: Bromide) => {
+    const saved = await catalogActions.setBromideImage(target.id, null);
+    toast({
+      title: saved ? '画像を削除しました' : '画像の削除に失敗しました',
+      type: saved ? 'success' : 'error'
+    });
   };
 
   useEffect(() => {
@@ -190,15 +181,23 @@ export function CollectionDetail({
                 </Badge>
               ) : null}
             </HStack>
-            {isAdmin && isMixed ? (
-              <Button
-                size="xs"
-                variant={editMode ? 'solid' : 'outline'}
-                onClick={() => setEditMode((v) => !v)}
-              >
-                {editMode ? <FaCheck /> : <FaPenToSquare />}
-                {editMode ? '編集を終了' : 'カードを編集'}
-              </Button>
+            {isAdmin ? (
+              <HStack gap="1.5" flexWrap="wrap">
+                <Button asChild size="xs" variant="outline">
+                  <Link href={toAppUrl(`/admin?collection=${collection.id}`)}>
+                    <FaGear />
+                    コレクション編集
+                  </Link>
+                </Button>
+                <Button
+                  size="xs"
+                  variant={editMode ? 'solid' : 'outline'}
+                  onClick={() => setEditMode((v) => !v)}
+                >
+                  {editMode ? <FaCheck /> : <FaPenToSquare />}
+                  {editMode ? '画像管理を終了' : '画像を管理'}
+                </Button>
+              </HStack>
             ) : null}
           </HStack>
           <HStack gap="2" flexWrap="wrap">
@@ -222,9 +221,12 @@ export function CollectionDetail({
               画像をまとめて追加
             </Button>
           </HStack>
-          {adminEdit && isMixed ? (
+          {adminEdit ? (
             <Text color="accent.text" fontSize="xs">
-              カードをタップしてメンバーを変更、× で削除、末尾の「＋」で追加できます。
+              画像ボタンで登録・差し替え、ゴミ箱で画像削除できます。
+              {isMixed
+                ? ' カード本体タップでタグ変更、× でカード削除、末尾の「＋」で追加できます。'
+                : ''}
             </Text>
           ) : null}
           <Heading textStyle="display" fontSize={{ base: '2xl', md: '3xl' }} lineHeight="1.15">
@@ -326,33 +328,48 @@ export function CollectionDetail({
             </Switch>
           ) : null}
           <HStack gap="2" alignItems="center" flexWrap="wrap">
-            <Text fontSize="sm">表示サイズ</Text>
+            <Text fontSize="sm">カード幅</Text>
             <HStack gap="1" borderRadius="lg" p="1" bgColor="bg.muted">
-              {(Object.keys(GRID_SIZE_LABELS) as GridSize[]).map((value) => (
+              {GRID_SIZE_PRESETS.map((preset) => (
                 <styled.button
-                  key={value}
+                  key={preset.label}
                   type="button"
-                  onClick={() => setGridSize(value)}
-                  aria-pressed={gridSize === value}
+                  onClick={() => setGridCellMin(preset.value)}
+                  aria-pressed={gridCellMin === preset.value}
                   cursor="pointer"
                   borderRadius="md"
                   minW="9"
                   py="1"
                   px="2.5"
-                  color={gridSize === value ? 'accent.fg' : 'fg.muted'}
+                  color={gridCellMin === preset.value ? 'accent.fg' : 'fg.muted'}
                   fontSize="xs"
                   fontWeight="bold"
-                  bgColor={gridSize === value ? 'accent.default' : 'transparent'}
+                  bgColor={gridCellMin === preset.value ? 'accent.default' : 'transparent'}
                   _hover={
-                    gridSize === value
+                    gridCellMin === preset.value
                       ? undefined
                       : { bgColor: 'bg.emphasized', color: 'fg.default' }
                   }
                 >
-                  {GRID_SIZE_LABELS[value]}
+                  {preset.label}
                 </styled.button>
               ))}
             </HStack>
+            <styled.input
+              type="range"
+              min={72}
+              max={200}
+              step={4}
+              value={gridCellMin}
+              onChange={(e) => setGridCellMin(Number(e.target.value))}
+              aria-label="カード幅"
+              cursor="pointer"
+              w={{ base: '120px', md: '160px' }}
+              accentColor="accent.default"
+            />
+            <Text color="fg.muted" fontSize="xs" fontVariantNumeric="tabular-nums">
+              {gridCellMin}px
+            </Text>
           </HStack>
         </HStack>
       </Stack>
@@ -368,7 +385,8 @@ export function CollectionDetail({
             shouldShow={shouldShow}
             adminEdit={adminEdit}
             requestImage={requestImage}
-            gridSize={gridSize}
+            removeImage={removeImage}
+            gridCellMin={gridCellMin}
             grid={grid}
           />
         ) : (
@@ -379,7 +397,8 @@ export function CollectionDetail({
             shouldShow={shouldShow}
             adminEdit={adminEdit}
             requestImage={requestImage}
-            gridSize={gridSize}
+            removeImage={removeImage}
+            gridCellMin={gridCellMin}
             grid={grid}
           />
         )
@@ -393,7 +412,8 @@ export function CollectionDetail({
           shouldShow={shouldShow}
           adminEdit={adminEdit}
           requestImage={requestImage}
-          gridSize={gridSize}
+          removeImage={removeImage}
+          gridCellMin={gridCellMin}
           onEditItem={
             adminEdit && isMixed ? (b) => setEditTarget({ mode: 'retag', bromide: b }) : undefined
           }
@@ -513,7 +533,8 @@ interface GridViewProps {
   shouldShow: (id?: string) => boolean;
   adminEdit?: boolean;
   requestImage?: (id: string) => void;
-  gridSize: GridSize;
+  removeImage?: (b: Bromide) => void;
+  gridCellMin: number;
 }
 
 interface MemberGridProps extends GridViewProps {
@@ -532,7 +553,8 @@ function MemberGridTable({
   shouldShow,
   adminEdit,
   requestImage,
-  gridSize
+  removeImage,
+  gridCellMin
 }: MemberGridProps) {
   const visibleNumbers = grid.numbers.filter((no) =>
     grid.members.some((m) => {
@@ -551,7 +573,7 @@ function MemberGridTable({
     >
       <Box
         style={{
-          gridTemplateColumns: `56px repeat(${grid.members.length}, minmax(${TABLE_CELL_MIN[gridSize]}, 1fr))`
+          gridTemplateColumns: `56px repeat(${grid.members.length}, minmax(${gridCellMin + 24}px, 1fr))`
         }}
         display="grid"
         minW="fit-content"
@@ -630,6 +652,7 @@ function MemberGridTable({
                       size="sm"
                       adminEdit={adminEdit}
                       onAddImage={requestImage ? () => requestImage(b.id) : undefined}
+                      onRemoveImage={removeImage ? () => removeImage(b) : undefined}
                     />
                   ) : (
                     <Box aspectRatio="3 / 4" borderRadius="lg" bgColor="bg.muted" opacity={0.3} />
@@ -680,7 +703,8 @@ function MemberSections({
   shouldShow,
   adminEdit,
   requestImage,
-  gridSize
+  removeImage,
+  gridCellMin
 }: MemberGridProps) {
   return (
     <Stack gap="4">
@@ -705,7 +729,7 @@ function MemberSections({
             </HStack>
             <Grid
               style={{
-                gridTemplateColumns: `repeat(auto-fill, minmax(${GRID_CELL_MIN[gridSize]}, 1fr))`
+                gridTemplateColumns: `repeat(auto-fill, minmax(${gridCellMin}px, 1fr))`
               }}
               gap="3"
             >
@@ -722,6 +746,7 @@ function MemberSections({
                     showStepper
                     adminEdit={adminEdit}
                     onAddImage={requestImage ? () => requestImage(b.id) : undefined}
+                    onRemoveImage={removeImage ? () => removeImage(b) : undefined}
                   />
                 </Stack>
               ))}
@@ -750,7 +775,8 @@ function FlatGridView({
   shouldShow,
   adminEdit,
   requestImage,
-  gridSize,
+  removeImage,
+  gridCellMin,
   onEditItem,
   onRemoveItem,
   onAddCard
@@ -763,7 +789,7 @@ function FlatGridView({
   return (
     <Grid
       style={{
-        gridTemplateColumns: `repeat(auto-fill, minmax(${GRID_CELL_MIN[gridSize]}, 1fr))`
+        gridTemplateColumns: `repeat(auto-fill, minmax(${gridCellMin}px, 1fr))`
       }}
       gap="3"
     >
@@ -782,6 +808,7 @@ function FlatGridView({
               showStepper
               adminEdit={adminEdit}
               onAddImage={requestImage ? () => requestImage(b.id) : undefined}
+              onRemoveImage={removeImage ? () => removeImage(b) : undefined}
               onEditMember={onEditItem ? () => onEditItem(b) : undefined}
               onRemoveCard={onRemoveItem ? () => onRemoveItem(b) : undefined}
             />

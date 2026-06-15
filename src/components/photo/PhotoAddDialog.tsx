@@ -141,22 +141,24 @@ function PhotoAddBody({
   };
 
   const resetAndClose = () => {
-    picked.forEach((p) => URL.revokeObjectURL(p.src));
+    picked.forEach(revokePickedImage);
     onOpenChange(false);
   };
 
   const onFilesPicked = (files: FileList | File[]) => {
-    const list = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    const list = Array.from(files).filter(isImageFile);
     if (list.length === 0) return;
-    const next = list.map((f) => ({ id: crypto.randomUUID(), src: URL.createObjectURL(f) }));
-    setPicked(next);
-    setCropIndex(0);
-    setSavedCount(0);
-    setPhase('cropping');
+    void Promise.all(list.map((f) => fileToDataUrl(f))).then((srcs) => {
+      const next = srcs.map((src) => ({ id: crypto.randomUUID(), src }));
+      setPicked(next);
+      setCropIndex(0);
+      setSavedCount(0);
+      setPhase('cropping');
+    });
   };
 
   const finishBatch = (saved: number) => {
-    picked.forEach((p) => URL.revokeObjectURL(p.src));
+    picked.forEach(revokePickedImage);
     setPicked([]);
     setSavedCount(saved);
     setPhase('summary');
@@ -823,4 +825,22 @@ function SummaryStep({
       </HStack>
     </Stack>
   );
+}
+
+function revokePickedImage(image: PickedImage) {
+  if (image.src.startsWith('blob:')) URL.revokeObjectURL(image.src);
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error('image read failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function isImageFile(file: File): boolean {
+  if (file.type.startsWith('image/')) return true;
+  return /\.(avif|gif|jpe?g|png|webp)$/i.test(file.name);
 }

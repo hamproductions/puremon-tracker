@@ -1,4 +1,4 @@
-import { FaCamera, FaCheck, FaMinus, FaPlus, FaXmark } from 'react-icons/fa6';
+import { FaCamera, FaCheck, FaMinus, FaPlus, FaTrash, FaXmark } from 'react-icons/fa6';
 import { Box, Center, HStack, Stack, styled } from 'styled-system/jsx';
 import { Text } from '~/components/ui/text';
 import type { Bromide, Member } from '~/types';
@@ -15,6 +15,7 @@ interface BromideTileProps {
   size?: 'sm' | 'md';
   adminEdit?: boolean;
   onAddImage?: () => void;
+  onRemoveImage?: () => void;
   onEditMember?: () => void;
   onRemoveCard?: () => void;
 }
@@ -33,6 +34,7 @@ export function BromideTile({
   size = 'md',
   adminEdit = false,
   onAddImage,
+  onRemoveImage,
   onEditMember,
   onRemoveCard
 }: BromideTileProps) {
@@ -222,6 +224,33 @@ export function BromideTile({
           >
             <FaCamera size={9} />
             {sm ? null : hasImg ? '差替' : '画像'}
+          </styled.button>
+        ) : null}
+
+        {adminEdit && hasImg && onRemoveImage ? (
+          <styled.button
+            type="button"
+            aria-label="画像を削除"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemoveImage();
+            }}
+            cursor="pointer"
+            display="flex"
+            position="absolute"
+            right="1"
+            bottom="1"
+            justifyContent="center"
+            alignItems="center"
+            borderRadius="md"
+            w="6"
+            h="6"
+            color="white"
+            bgColor="red.9"
+            opacity={0.9}
+            _hover={{ bgColor: 'red.10', opacity: 1 }}
+          >
+            <FaTrash size={10} />
           </styled.button>
         ) : null}
 

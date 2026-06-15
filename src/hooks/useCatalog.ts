@@ -61,20 +61,23 @@ export function useCatalog(): Catalog {
   const deletedCollections = useStore(deletedCollectionsStore);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || fetchedOnce) return;
+    if (!isSupabaseConfigured || hasE2EProfile() || fetchedOnce) return;
     fetchedOnce = true;
     void refreshRemoteCatalog();
   }, []);
 
   return useMemo(() => {
     const e2e = hasE2EProfile();
-    const baseMembers = remote && remote.members.length > 0 ? remote.members : seedCatalog.members;
+    const baseMembers =
+      !e2e && remote && remote.members.length > 0 ? remote.members : seedCatalog.members;
     const baseCollections = remote
-      ? remote.collections
+      ? e2e
+        ? seedCatalog.collections
+        : remote.collections
       : isSupabaseConfigured && !e2e
         ? []
         : seedCatalog.collections;
-    const baseImages = remote?.images ?? {};
+    const baseImages = e2e ? {} : (remote?.images ?? {});
     return buildMergedCatalog(
       baseMembers,
       baseCollections,
@@ -94,6 +97,7 @@ export const catalogActions = {
       ...list.filter((c) => c.id !== collection.id),
       collection
     ]);
+    if (hasE2EProfile()) return;
     if (!isSupabaseConfigured) return;
     try {
       await upsertCollectionRemote(collection);
@@ -106,6 +110,7 @@ export const catalogActions = {
   async deleteCollection(id: string) {
     customCollectionsStore.update((list) => list.filter((c) => c.id !== id));
     deletedCollectionsStore.update((list) => (list.includes(id) ? list : [...list, id]));
+    if (hasE2EProfile()) return;
     if (!isSupabaseConfigured) return;
     try {
       await deleteCollectionRemote(id);
@@ -116,6 +121,7 @@ export const catalogActions = {
   },
   async upsertMember(member: Member) {
     customMembersStore.update((list) => [...list.filter((m) => m.id !== member.id), member]);
+    if (hasE2EProfile()) return;
     if (!isSupabaseConfigured) return;
     try {
       await upsertMemberRemote(member);

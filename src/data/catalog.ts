@@ -117,7 +117,7 @@ const COLLECTION_SEEDS: CollectionSeed[] = [
   {
     id: 'mixed-2024',
     title: 'ミックスブロマイドセット',
-    description: 'メンバーごとに枚数が違うミックスセット（個別タグ付け）',
+    description: 'メンバーごとに枚数が違うミックスセット（タグ付き）',
     kind: 'mixed',
     memberIds: [],
     numbers: [],

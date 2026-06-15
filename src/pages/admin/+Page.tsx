@@ -15,6 +15,10 @@ export default function Page() {
   const catalog = useCatalog();
   const mounted = useMounted();
   const { isAdmin } = useAuth();
+  const initialCollectionId =
+    mounted && typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('collection')
+      : null;
 
   const header = (
     <Stack gap="1">
@@ -27,7 +31,7 @@ export default function Page() {
         </Heading>
       </HStack>
       <Text color="fg.muted" fontSize="sm">
-        コレクションの作成・削除と投稿の承認を行います。画像はコレクションを開いて「画像を編集」から登録できます。
+        コレクションの登録先定義、削除、投稿承認を行います。画像は各コレクションの「画像を管理」から登録・削除できます。
       </Text>
     </Stack>
   );
@@ -71,7 +75,7 @@ export default function Page() {
         </Tabs.List>
 
         <Tabs.Content value="collections">
-          <CollectionEditor catalog={catalog} />
+          <CollectionEditor catalog={catalog} initialCollectionId={initialCollectionId} />
         </Tabs.Content>
 
         <Tabs.Content value="review">
