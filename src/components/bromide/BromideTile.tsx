@@ -1,5 +1,5 @@
 import { FaCheck, FaMinus, FaPlus } from 'react-icons/fa6';
-import { Box, HStack, Stack, styled } from 'styled-system/jsx';
+import { Box, Center, HStack, Stack, styled } from 'styled-system/jsx';
 import { Text } from '~/components/ui/text';
 import type { Bromide, Member } from '~/types';
 
@@ -17,17 +17,6 @@ interface BromideTileProps {
 const Img = styled('img');
 const StepButton = styled('button');
 
-function stackShadow(count: number, color: string, sm: boolean) {
-  if (count >= 3) {
-    return sm
-      ? `2px 3px 0 0 ${color}cc, 4px 6px 0 0 ${color}88`
-      : `4px 5px 0 0 ${color}cc, 8px 10px 0 0 ${color}80`;
-  }
-  if (count === 2) return sm ? `2px 3px 0 0 ${color}cc` : `4px 5px 0 0 ${color}cc`;
-  if (count === 1) return `0 6px 18px -8px ${color}aa`;
-  return undefined;
-}
-
 export function BromideTile({
   bromide,
   member,
@@ -40,23 +29,20 @@ export function BromideTile({
 }: BromideTileProps) {
   const owned = count >= 1;
   const isDup = count >= 2;
-  const color = member?.color ?? '#FF5FA2';
+  const color = member?.color ?? '#2196f3';
   const sm = size === 'sm';
   const interactive = Boolean(onToggle);
   const stepper = owned && showStepper && Boolean(onSetCount);
-
-  const handleCardClick = () => {
-    if (!owned) onToggle?.();
-  };
+  const hasImg = Boolean(bromide.imageUrl);
 
   return (
-    <Stack gap="1.5" w="full" minW="0">
+    <Stack gap="1" w="full" minW="0">
       <Box
         role={interactive ? 'button' : undefined}
         tabIndex={interactive && !owned ? 0 : undefined}
         aria-pressed={interactive ? owned : undefined}
         aria-label={label ? `${label}${owned ? `・所持${count}枚` : '・未所持'}` : undefined}
-        onClick={interactive ? handleCardClick : undefined}
+        onClick={interactive && !owned ? onToggle : undefined}
         onKeyDown={(e) => {
           if (!interactive || owned) return;
           if (e.key === 'Enter' || e.key === ' ') {
@@ -64,23 +50,25 @@ export function BromideTile({
             onToggle?.();
           }
         }}
-        style={{ borderColor: owned ? color : undefined, boxShadow: stackShadow(count, color, sm) }}
+        style={{
+          backgroundColor: owned && !hasImg ? color : undefined,
+          borderColor: owned ? color : undefined
+        }}
         cursor={interactive && !owned ? 'pointer' : 'default'}
         position="relative"
         aspectRatio="3 / 4"
         borderColor={owned ? undefined : 'board.border'}
         borderRadius={sm ? 'md' : 'lg'}
-        borderWidth="2px"
+        borderWidth="1px"
         w="full"
-        bgColor={owned ? 'board.owned' : 'board.missing'}
-        opacity={owned ? 1 : 0.7}
+        bgColor={owned ? undefined : 'board.missing'}
         overflow="hidden"
-        transition="transform 0.12s, box-shadow 0.18s, opacity 0.12s"
-        borderStyle={owned ? 'solid' : 'dashed'}
-        _hover={interactive && !owned ? { transform: 'translateY(-2px)', opacity: 1 } : undefined}
-        animation={owned ? 'pop 0.18s ease' : undefined}
+        transition="background-color 0.12s, border-color 0.12s"
+        _hover={
+          interactive && !owned ? { borderColor: 'accent.default', bgColor: 'bg.muted' } : undefined
+        }
       >
-        {bromide.imageUrl ? (
+        {hasImg ? (
           <Img
             src={bromide.imageUrl}
             alt={label ?? ''}
@@ -90,57 +78,34 @@ export function BromideTile({
             objectFit="cover"
             w="full"
             h="full"
-            filter={owned ? undefined : 'grayscale(0.8) brightness(0.85)'}
+            filter={owned ? undefined : 'grayscale(1) opacity(0.45)'}
           />
-        ) : (
-          <Stack
-            style={{ backgroundColor: owned ? `${color}1f` : undefined }}
-            inset="0"
-            position="absolute"
-            gap="0"
-            justifyContent="center"
-            alignItems="center"
-          >
-            <Text textStyle="display" style={{ color }} fontSize={sm ? 'xl' : '3xl'} lineHeight="1">
-              {bromide.no}
-            </Text>
-          </Stack>
-        )}
-
-        {!bromide.imageUrl ? (
-          <HStack
-            position="absolute"
-            left="0"
-            right="0"
-            bottom={stepper ? (sm ? '6' : '7') : '0'}
-            gap="1"
-            justifyContent="center"
-            py="0.5"
-            px="1"
-            bgColor="rgba(0,0,0,0.32)"
-            pointerEvents="none"
-          >
-            <Box
-              style={{ backgroundColor: color }}
-              flexShrink="0"
-              borderRadius="full"
-              w="1.5"
-              h="1.5"
-            />
-            <Text color="white" fontSize="2xs" fontWeight="medium" truncate>
-              {member ? member.nickname : '集合'}
-            </Text>
-          </HStack>
         ) : null}
 
-        {owned ? (
-          <HStack
-            style={{ backgroundColor: isDup ? color : `${color}e6` }}
+        {owned && !hasImg ? (
+          <Center
+            style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}
+            inset="0"
+            position="absolute"
+            pb={stepper ? (sm ? '5' : '6') : '0'}
+            color="white"
+          >
+            {isDup ? (
+              <Text textStyle="display" color="white" fontSize={sm ? 'lg' : '2xl'} lineHeight="1">
+                ×{count}
+              </Text>
+            ) : (
+              <FaCheck size={sm ? 16 : 22} />
+            )}
+          </Center>
+        ) : null}
+
+        {owned && hasImg ? (
+          <Center
+            style={{ backgroundColor: color }}
             position="absolute"
             top="1"
             right="1"
-            justifyContent="center"
-            alignItems="center"
             borderRadius="full"
             minW="5"
             h="5"
@@ -148,30 +113,14 @@ export function BromideTile({
             color="white"
             fontSize="2xs"
             fontWeight="bold"
-            boxShadow="0 1px 4px rgba(0,0,0,0.4)"
           >
             {isDup ? `×${count}` : <FaCheck size={10} />}
-          </HStack>
-        ) : interactive ? (
-          <HStack
-            position="absolute"
-            top="1"
-            right="1"
-            justifyContent="center"
-            alignItems="center"
-            borderRadius="full"
-            w="5"
-            h="5"
-            color="white"
-            bgColor="rgba(0,0,0,0.35)"
-          >
-            <FaPlus size={10} />
-          </HStack>
+          </Center>
         ) : null}
 
         {stepper ? (
           <HStack
-            style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
             position="absolute"
             left="0"
             right="0"
@@ -179,8 +128,7 @@ export function BromideTile({
             gap="0"
             justifyContent="space-between"
             alignItems="stretch"
-            h={sm ? '6' : '7'}
-            backdropFilter="blur(3px)"
+            h={sm ? '5' : '6'}
           >
             <StepButton
               type="button"
@@ -195,17 +143,17 @@ export function BromideTile({
               justifyContent="center"
               alignItems="center"
               color="white"
-              _hover={{ bgColor: 'rgba(255,255,255,0.16)' }}
+              _hover={{ bgColor: 'rgba(255,255,255,0.2)' }}
             >
-              <FaMinus size={sm ? 9 : 11} />
+              <FaMinus size={sm ? 8 : 10} />
             </StepButton>
             <Text
               display="flex"
               justifyContent="center"
               alignItems="center"
-              minW={sm ? '5' : '7'}
+              minW={sm ? '4' : '6'}
               color="white"
-              fontSize={sm ? 'xs' : 'sm'}
+              fontSize={sm ? '2xs' : 'xs'}
               fontWeight="bold"
               fontVariantNumeric="tabular-nums"
             >
@@ -224,9 +172,9 @@ export function BromideTile({
               justifyContent="center"
               alignItems="center"
               color="white"
-              _hover={{ bgColor: 'rgba(255,255,255,0.16)' }}
+              _hover={{ bgColor: 'rgba(255,255,255,0.2)' }}
             >
-              <FaPlus size={sm ? 9 : 11} />
+              <FaPlus size={sm ? 8 : 10} />
             </StepButton>
           </HStack>
         ) : null}
