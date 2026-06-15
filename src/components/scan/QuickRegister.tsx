@@ -21,16 +21,17 @@ const LAYOUT_ITEMS: { value: Layout; label: string }[] = [
 interface QuickRegisterProps {
   catalog: Catalog;
   collection: Collection;
+  size?: string;
 }
 
-export function QuickRegister({ catalog, collection }: QuickRegisterProps) {
+export function QuickRegister({ catalog, collection, size }: QuickRegisterProps) {
   const { ownership, setCount, increment } = useOwnership();
   const { toast } = useToaster();
   const [layout, setLayout] = useState<Layout>('grid');
 
   const bromides = useMemo(
-    () => bromidesByCollection(catalog, collection.id),
-    [catalog, collection.id]
+    () => bromidesByCollection(catalog, collection.id, size),
+    [catalog, collection.id, size]
   );
 
   const countOf = (id: string) => ownership[id] ?? 0;
@@ -107,6 +108,7 @@ export function QuickRegister({ catalog, collection }: QuickRegisterProps) {
           <QuickGrid
             catalog={catalog}
             collection={collection}
+            size={size}
             countOf={countOf}
             onCycle={cycle}
             onReset={reset}
@@ -115,6 +117,7 @@ export function QuickRegister({ catalog, collection }: QuickRegisterProps) {
           <FocusEntry
             catalog={catalog}
             collection={collection}
+            size={size}
             countOf={countOf}
             onSet={setCount}
             onIncrement={(id) => increment(id)}

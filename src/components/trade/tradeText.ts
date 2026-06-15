@@ -71,17 +71,23 @@ function shortName(catalog: Catalog, b: Bromide): string {
   return m?.nickname ?? m?.name ?? b.memberId;
 }
 
+function sizePart(b: Bromide): string {
+  return b.size ? `${b.size} ` : '';
+}
+
 function giveDetail(catalog: Catalog, item: GiveItem): string {
-  return `${fullName(catalog, item.bromide)} No.${item.bromide.no} ×${item.qty}`;
+  return `${fullName(catalog, item.bromide)} ${sizePart(item.bromide)}No.${item.bromide.no} ×${item.qty}`;
 }
 
 function wantDetail(catalog: Catalog, b: Bromide): string {
-  return `${fullName(catalog, b)} No.${b.no}`;
+  return `${fullName(catalog, b)} ${sizePart(b)}No.${b.no}`;
 }
 
 interface MemberGroup {
   key: string;
   name: string;
+  memberId: string | null;
+  size: string | null;
   parts: string[];
 }
 
@@ -93,16 +99,23 @@ function groupByMember(
   catalog.members.forEach((m, i) => order.set(m.id, i));
   const groups = new Map<string, MemberGroup>();
   for (const { bromide, suffix } of entries) {
-    const key = bromide.memberId ?? '__group__';
+    const key = `${bromide.memberId ?? '__group__'}:${bromide.size ?? ''}`;
     if (!groups.has(key)) {
-      groups.set(key, { key, name: shortName(catalog, bromide), parts: [] });
+      groups.set(key, {
+        key,
+        name: `${shortName(catalog, bromide)}${bromide.size ? `(${bromide.size})` : ''}`,
+        memberId: bromide.memberId,
+        size: bromide.size,
+        parts: []
+      });
     }
     groups.get(key)!.parts.push(`${bromide.no}${suffix}`);
   }
   return [...groups.values()].sort((a, b) => {
-    const oa = a.key === '__group__' ? Infinity : (order.get(a.key) ?? Infinity);
-    const ob = b.key === '__group__' ? Infinity : (order.get(b.key) ?? Infinity);
-    return oa - ob;
+    const oa = a.memberId ? (order.get(a.memberId) ?? Infinity) : Infinity;
+    const ob = b.memberId ? (order.get(b.memberId) ?? Infinity) : Infinity;
+    if (oa !== ob) return oa - ob;
+    return (a.size ?? '').localeCompare(b.size ?? '');
   });
 }
 

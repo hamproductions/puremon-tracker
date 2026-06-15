@@ -4,6 +4,7 @@ import { Box, Grid, HStack, Stack, styled } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
 import { Heading } from '~/components/ui/heading';
 import { Link } from '~/components/ui/link';
+import { SegmentGroup } from '~/components/ui/segment-group';
 import { Switch } from '~/components/ui/switch';
 import { Text } from '~/components/ui/text';
 import { BromideTile } from '~/components/bromide/BromideTile';
@@ -53,8 +54,10 @@ export function CollectionDetail({
 }: CollectionDetailProps) {
   const [missingOnly, setMissingOnly] = useState(false);
   const [byMember, setByMember] = useState(false);
-  const grid = useMemo(() => buildGrid(catalog, collection), [catalog, collection]);
+  const [size, setSize] = useState<string | undefined>(undefined);
+  const grid = useMemo(() => buildGrid(catalog, collection, size), [catalog, collection, size]);
   const stats = collectionStats(catalog, collection.id, ownership);
+  const sizeStats = collectionStats(catalog, collection.id, ownership, grid.size);
   const date = formatReleaseDate(collection.releaseDate);
   const isComplete = mounted && stats.percent === 100;
 
@@ -128,6 +131,41 @@ export function CollectionDetail({
         </HStack>
         <ProgressBar percent={mounted ? stats.percent : 0} />
         <StatPills stats={stats} mounted={mounted} />
+
+        {grid.hasSizes ? (
+          <HStack
+            gap="2.5"
+            alignItems="center"
+            borderColor="board.border"
+            borderTopWidth="1px"
+            pt="2.5"
+            flexWrap="wrap"
+          >
+            <Text fontSize="sm" fontWeight="bold">
+              サイズ
+            </Text>
+            <SegmentGroup.Root
+              value={grid.size ?? ''}
+              onValueChange={(e) => setSize(e.value)}
+              size="sm"
+              orientation="horizontal"
+            >
+              <SegmentGroup.Indicator />
+              {grid.sizes.map((s) => (
+                <SegmentGroup.Item key={s} value={s}>
+                  <SegmentGroup.ItemText>{s}</SegmentGroup.ItemText>
+                  <SegmentGroup.ItemControl />
+                  <SegmentGroup.ItemHiddenInput />
+                </SegmentGroup.Item>
+              ))}
+            </SegmentGroup.Root>
+            {mounted ? (
+              <Text color="fg.muted" fontSize="xs" fontVariantNumeric="tabular-nums">
+                {grid.size}サイズ {sizeStats.owned}/{sizeStats.total}・{sizeStats.percent}%
+              </Text>
+            ) : null}
+          </HStack>
+        ) : null}
 
         <HStack
           gap="3"

@@ -8,12 +8,13 @@ const Img = styled('img');
 interface TargetGridProps {
   catalog: Catalog;
   collection: Collection;
+  size?: string;
   selectedId: string | null;
   onSelect: (bromide: Bromide) => void;
 }
 
-export function TargetGrid({ catalog, collection, selectedId, onSelect }: TargetGridProps) {
-  const grid = buildGrid(catalog, collection);
+export function TargetGrid({ catalog, collection, size, selectedId, onSelect }: TargetGridProps) {
+  const grid = buildGrid(catalog, collection, size);
 
   if (grid.kind === 'flat') {
     return (

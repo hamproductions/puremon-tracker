@@ -9,33 +9,59 @@ export function collectionMap(catalog: Catalog): Map<string, Collection> {
   return new Map(catalog.collections.map((c) => [c.id, c]));
 }
 
-export function bromidesByCollection(catalog: Catalog, collectionId: string): Bromide[] {
-  return catalog.bromides.filter((b) => b.collectionId === collectionId);
+export function bromidesByCollection(
+  catalog: Catalog,
+  collectionId: string,
+  size?: string | null
+): Bromide[] {
+  return catalog.bromides.filter(
+    (b) => b.collectionId === collectionId && (size === undefined || b.size === size)
+  );
+}
+
+export function activeSizeOf(collection: Collection, size?: string): string | null {
+  const sizes = collection.sizes ?? [];
+  if (sizes.length === 0) return null;
+  return size && sizes.includes(size) ? size : sizes[0];
 }
 
 export interface MemberGrid {
   kind: 'member_grid';
   members: Member[];
   numbers: number[];
+  sizes: string[];
+  hasSizes: boolean;
+  size: string | null;
   cell: (memberId: string, no: number) => Bromide | undefined;
 }
 
 export interface FlatGrid {
   kind: 'flat';
+  sizes: string[];
+  hasSizes: boolean;
+  size: string | null;
   bromides: Bromide[];
 }
 
 export type CollectionGrid = MemberGrid | FlatGrid;
 
-export function buildGrid(catalog: Catalog, collection: Collection): CollectionGrid {
+export function buildGrid(catalog: Catalog, collection: Collection, size?: string): CollectionGrid {
+  const sizes = collection.sizes ?? [];
+  const hasSizes = sizes.length > 0;
+  const activeSize = activeSizeOf(collection, size);
+  const inSize = bromidesByCollection(catalog, collection.id, activeSize);
+
   if (collection.kind === 'flat') {
     return {
       kind: 'flat',
-      bromides: bromidesByCollection(catalog, collection.id).sort((a, b) => a.no - b.no)
+      sizes,
+      hasSizes,
+      size: activeSize,
+      bromides: inSize.sort((a, b) => a.no - b.no)
     };
   }
   const mm = memberMap(catalog);
-  const byId = new Map(bromidesByCollection(catalog, collection.id).map((b) => [b.id, b]));
+  const byId = new Map(inSize.map((b) => [b.id, b]));
   const members = collection.memberIds
     .map((id) => mm.get(id))
     .filter((m): m is Member => Boolean(m))
@@ -45,7 +71,10 @@ export function buildGrid(catalog: Catalog, collection: Collection): CollectionG
     kind: 'member_grid',
     members,
     numbers,
-    cell: (memberId, no) => byId.get(bromideId(collection.id, memberId, no))
+    sizes,
+    hasSizes,
+    size: activeSize,
+    cell: (memberId, no) => byId.get(bromideId(collection.id, memberId, no, activeSize))
   };
 }
 
@@ -78,9 +107,10 @@ function statsFor(bromides: Bromide[], ownership: OwnershipMap): OwnStats {
 export function collectionStats(
   catalog: Catalog,
   collectionId: string,
-  ownership: OwnershipMap
+  ownership: OwnershipMap,
+  size?: string | null
 ): OwnStats {
-  return statsFor(bromidesByCollection(catalog, collectionId), ownership);
+  return statsFor(bromidesByCollection(catalog, collectionId, size), ownership);
 }
 
 export function overallStats(catalog: Catalog, ownership: OwnershipMap): OwnStats {
@@ -119,7 +149,8 @@ export function memberLabel(catalog: Catalog, memberId: string | null): string {
 }
 
 export function bromideLabel(catalog: Catalog, bromide: Bromide): string {
-  return `${memberLabel(catalog, bromide.memberId)} No.${bromide.no}`;
+  const sizePart = bromide.size ? `${bromide.size} ` : '';
+  return `${memberLabel(catalog, bromide.memberId)} ${sizePart}No.${bromide.no}`;
 }
 
 export function memberColor(catalog: Catalog, memberId: string | null): string {

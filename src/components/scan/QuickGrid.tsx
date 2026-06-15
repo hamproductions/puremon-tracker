@@ -9,13 +9,21 @@ const MAX = 3;
 interface QuickGridProps {
   catalog: Catalog;
   collection: Collection;
+  size?: string;
   countOf: (id: string) => number;
   onCycle: (id: string) => void;
   onReset: (id: string) => void;
 }
 
-export function QuickGrid({ catalog, collection, countOf, onCycle, onReset }: QuickGridProps) {
-  const grid = buildGrid(catalog, collection);
+export function QuickGrid({
+  catalog,
+  collection,
+  size,
+  countOf,
+  onCycle,
+  onReset
+}: QuickGridProps) {
+  const grid = buildGrid(catalog, collection, size);
 
   if (grid.kind === 'flat') {
     return (

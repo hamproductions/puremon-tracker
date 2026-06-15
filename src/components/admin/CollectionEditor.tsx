@@ -45,6 +45,14 @@ interface FormState {
   kind: CollectionKind;
   memberIds: Set<string>;
   count: number;
+  sizes: string;
+}
+
+function parseSizes(value: string): string[] {
+  return value
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 }
 
 function emptyForm(members: Member[]): FormState {
@@ -54,7 +62,8 @@ function emptyForm(members: Member[]): FormState {
     releaseDate: '',
     kind: 'member_grid',
     memberIds: new Set(members.map((m) => m.id)),
-    count: 3
+    count: 3,
+    sizes: ''
   };
 }
 
@@ -73,7 +82,8 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
         memberIds: new Set(
           editing.memberIds.length ? editing.memberIds : catalog.members.map((m) => m.id)
         ),
-        count: editing.numbers.length || 1
+        count: editing.numbers.length || 1,
+        sizes: (editing.sizes ?? []).join(', ')
       });
     } else {
       setForm(emptyForm(catalog.members));
@@ -103,6 +113,7 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
   const save = () => {
     if (!canSave) return;
     const numbers = Array.from({ length: form.count }, (_, i) => i + 1);
+    const sizes = parseSizes(form.sizes);
     const collection: Collection = {
       id: editing?.id ?? `${slugify(form.title)}-${Date.now().toString(36)}`,
       title: form.title.trim(),
@@ -111,6 +122,7 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
       kind: form.kind,
       memberIds: form.kind === 'flat' ? [] : selectedMembers.map((m) => m.id),
       numbers,
+      sizes: sizes.length > 0 ? sizes : undefined,
       createdAt: editing?.createdAt ?? new Date().toISOString()
     };
     catalogActions.upsertCollection(collection);
@@ -205,6 +217,15 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
               </SegmentGroup.Item>
             ))}
           </SegmentGroup.Root>
+        </Stack>
+
+        <Stack gap="1.5">
+          <FieldLabel>サイズ（カンマ区切り・空欄で無し）</FieldLabel>
+          <Input
+            value={form.sizes}
+            onChange={(e) => patch({ sizes: e.target.value })}
+            placeholder="L, 2L"
+          />
         </Stack>
 
         {form.kind === 'member_grid' ? (

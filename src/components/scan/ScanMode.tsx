@@ -13,26 +13,27 @@ import { useImageRegister } from './useImageRegister';
 interface ScanModeProps {
   catalog: Catalog;
   collection: Collection;
+  size?: string;
 }
 
-export function ScanMode({ catalog, collection }: ScanModeProps) {
+export function ScanMode({ catalog, collection, size }: ScanModeProps) {
   const { register, isAdmin } = useImageRegister();
   const { toast } = useToaster();
 
   const ordered = useMemo(() => {
-    const list = bromidesByCollection(catalog, collection.id).sort(
+    const list = bromidesByCollection(catalog, collection.id, size).sort(
       (a, b) => (a.memberId ?? '').localeCompare(b.memberId ?? '') || a.no - b.no
     );
     const missing = list.filter((b) => !b.imageUrl);
     const has = list.filter((b) => b.imageUrl);
     return [...missing, ...has];
-  }, [catalog, collection.id]);
+  }, [catalog, collection.id, size]);
 
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
     setIndex(0);
-  }, [collection.id]);
+  }, [collection.id, size]);
 
   const total = ordered.length;
   const clamped = Math.min(index, Math.max(0, total - 1));

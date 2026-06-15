@@ -130,7 +130,7 @@ export function DuplicateView({
                       {memberShort(catalog, bromide)}
                     </Text>
                     <Text color="fg.muted" fontSize="2xs" fontVariantNumeric="tabular-nums">
-                      No.{bromide.no}
+                      {bromide.size ? `${bromide.size}・` : ''}No.{bromide.no}
                     </Text>
                   </Stack>
                   <Box

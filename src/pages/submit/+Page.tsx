@@ -4,6 +4,7 @@ import { FaCloudArrowUp, FaPaperPlane, FaUsersRectangle } from 'react-icons/fa6'
 import { Box, HStack, Stack } from 'styled-system/jsx';
 import { Button } from '~/components/ui/button';
 import { Heading } from '~/components/ui/heading';
+import { SegmentGroup } from '~/components/ui/segment-group';
 import { Text } from '~/components/ui/text';
 import { Textarea } from '~/components/ui/textarea';
 import { Metadata } from '~/components/layout/Metadata';
@@ -19,7 +20,7 @@ import { submissionsStore, useStore } from '~/data/store';
 import { getSupabase } from '~/lib/supabase';
 import { blobToDataUrl, prepareImageBlob, uploadBromideImage } from '~/lib/storage';
 import type { Bromide, Submission } from '~/types';
-import { bromideLabel } from '~/utils/stats';
+import { activeSizeOf, bromideLabel } from '~/utils/stats';
 
 function StepHead({ n, title }: { n: number; title: string }) {
   return (
@@ -68,6 +69,7 @@ export default function Page() {
   const allSubs = useStore(submissionsStore);
 
   const [collectionId, setCollectionId] = useState<string | null>(null);
+  const [size, setSize] = useState<string | undefined>(undefined);
   const [target, setTarget] = useState<Bromide | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -81,6 +83,7 @@ export default function Page() {
       const b = catalog.bromides.find((x) => x.id === initialBromideId);
       if (b) {
         setCollectionId(b.collectionId);
+        setSize(b.size ?? undefined);
         setTarget(b);
         setSeeded(true);
         return;
@@ -94,6 +97,8 @@ export default function Page() {
     () => catalog.collections.find((c) => c.id === collectionId) ?? null,
     [catalog.collections, collectionId]
   );
+
+  const activeSize = collection ? (activeSizeOf(collection, size) ?? undefined) : undefined;
 
   const mine = useMemo(() => {
     const me = profile?.id ?? 'local';
@@ -196,12 +201,38 @@ export default function Page() {
               value={collectionId}
               onSelect={(id) => {
                 setCollectionId(id);
+                setSize(catalog.collections.find((c) => c.id === id)?.sizes?.[0]);
                 setTarget(null);
               }}
             />
           ) : (
             <Box h="9" />
           )}
+          {mounted && collection?.sizes?.length ? (
+            <HStack gap="2.5" alignItems="center" flexWrap="wrap">
+              <Text color="fg.muted" fontSize="xs" fontWeight="bold">
+                サイズ
+              </Text>
+              <SegmentGroup.Root
+                value={activeSize ?? ''}
+                onValueChange={(e) => {
+                  setSize(e.value);
+                  setTarget(null);
+                }}
+                size="sm"
+                orientation="horizontal"
+              >
+                <SegmentGroup.Indicator />
+                {collection.sizes.map((s) => (
+                  <SegmentGroup.Item key={s} value={s}>
+                    <SegmentGroup.ItemText>{s}</SegmentGroup.ItemText>
+                    <SegmentGroup.ItemControl />
+                    <SegmentGroup.ItemHiddenInput />
+                  </SegmentGroup.Item>
+                ))}
+              </SegmentGroup.Root>
+            </HStack>
+          ) : null}
         </Stack>
       </Panel>
 
@@ -227,6 +258,7 @@ export default function Page() {
               <TargetGrid
                 catalog={catalog}
                 collection={collection}
+                size={activeSize}
                 selectedId={target?.id ?? null}
                 onSelect={setTarget}
               />

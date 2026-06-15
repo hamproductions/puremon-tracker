@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FaImage, FaTrash } from 'react-icons/fa6';
 import { Box, Grid, HStack, Stack, styled } from 'styled-system/jsx';
+import { SegmentGroup } from '~/components/ui/segment-group';
 import { Spinner } from '~/components/ui/spinner';
 import { Text } from '~/components/ui/text';
 import { useToaster } from '~/context/ToasterContext';
@@ -18,20 +19,53 @@ export function ImageManager({
   catalog: Catalog;
   collection: Collection;
 }) {
-  const grid = buildGrid(catalog, collection);
+  const [size, setSize] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    setSize(collection.sizes?.[0]);
+  }, [collection.id, collection.sizes]);
+
+  const grid = buildGrid(catalog, collection, size);
+
+  const sizeSelector = grid.hasSizes ? (
+    <HStack gap="2.5" alignItems="center" flexWrap="wrap">
+      <Text color="fg.muted" fontSize="xs" fontWeight="bold">
+        サイズ
+      </Text>
+      <SegmentGroup.Root
+        value={grid.size ?? ''}
+        onValueChange={(e) => setSize(e.value)}
+        size="sm"
+        orientation="horizontal"
+      >
+        <SegmentGroup.Indicator />
+        {grid.sizes.map((s) => (
+          <SegmentGroup.Item key={s} value={s}>
+            <SegmentGroup.ItemText>{s}</SegmentGroup.ItemText>
+            <SegmentGroup.ItemControl />
+            <SegmentGroup.ItemHiddenInput />
+          </SegmentGroup.Item>
+        ))}
+      </SegmentGroup.Root>
+    </HStack>
+  ) : null;
 
   if (grid.kind === 'flat') {
     return (
-      <Grid gap="3" columns={{ base: 2, sm: 3, md: 5 }}>
-        {grid.bromides.map((b) => (
-          <ImageCell key={b.id} bromide={b} />
-        ))}
-      </Grid>
+      <Stack gap="4">
+        {sizeSelector}
+        <Grid gap="3" columns={{ base: 2, sm: 3, md: 5 }}>
+          {grid.bromides.map((b) => (
+            <ImageCell key={b.id} bromide={b} />
+          ))}
+        </Grid>
+      </Stack>
     );
   }
 
   return (
     <Stack gap="4">
+      {sizeSelector}
       {grid.members.map((m) => (
         <Stack key={m.id} gap="1.5">
           <HStack gap="2" alignItems="center">

@@ -24,6 +24,7 @@ export interface Collection {
   coverImage?: string;
   memberIds: string[];
   numbers: number[];
+  sizes?: string[];
   createdAt: string;
 }
 
@@ -31,6 +32,7 @@ export interface Bromide {
   id: string;
   collectionId: string;
   memberId: string | null;
+  size: string | null;
   no: number;
   label?: string;
   imageUrl?: string;

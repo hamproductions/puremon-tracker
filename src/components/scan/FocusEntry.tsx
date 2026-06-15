@@ -10,18 +10,26 @@ const Img = styled('img');
 interface FocusEntryProps {
   catalog: Catalog;
   collection: Collection;
+  size?: string;
   countOf: (id: string) => number;
   onSet: (id: string, count: number) => void;
   onIncrement: (id: string) => void;
 }
 
-export function FocusEntry({ catalog, collection, countOf, onSet, onIncrement }: FocusEntryProps) {
+export function FocusEntry({
+  catalog,
+  collection,
+  size,
+  countOf,
+  onSet,
+  onIncrement
+}: FocusEntryProps) {
   const bromides = useMemo(
     () =>
-      bromidesByCollection(catalog, collection.id).sort(
+      bromidesByCollection(catalog, collection.id, size).sort(
         (a, b) => (a.memberId ?? '').localeCompare(b.memberId ?? '') || a.no - b.no
       ),
-    [catalog, collection.id]
+    [catalog, collection.id, size]
   );
 
   const [index, setIndex] = useState(0);
@@ -31,7 +39,7 @@ export function FocusEntry({ catalog, collection, countOf, onSet, onIncrement }:
 
   useEffect(() => {
     setIndex(0);
-  }, [collection.id]);
+  }, [collection.id, size]);
 
   const advance = useCallback(() => {
     setIndex((i) => Math.min(i + 1, total - 1));

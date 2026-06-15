@@ -91,7 +91,7 @@ export function MissingView({ catalog, ownership, collections, memberFilter }: M
                       {memberShort(catalog, b)}
                     </Text>
                     <Text color="fg.muted" fontSize="2xs" fontVariantNumeric="tabular-nums">
-                      No.{b.no}
+                      {b.size ? `${b.size}・` : ''}No.{b.no}
                     </Text>
                   </Stack>
                 </HStack>

@@ -3,6 +3,7 @@ import { usePageContext } from 'vike-react/usePageContext';
 import { FaBolt, FaCamera, FaListCheck } from 'react-icons/fa6';
 import { Box, HStack, Stack } from 'styled-system/jsx';
 import { Heading } from '~/components/ui/heading';
+import { SegmentGroup } from '~/components/ui/segment-group';
 import { Tabs } from '~/components/ui/tabs';
 import { Text } from '~/components/ui/text';
 import { Metadata } from '~/components/layout/Metadata';
@@ -13,7 +14,7 @@ import { ScanProgress } from '~/components/scan/ScanProgress';
 import { useCatalog } from '~/hooks/useCatalog';
 import { useMounted } from '~/hooks/useMounted';
 import { useOwnership } from '~/hooks/useOwnership';
-import { bromidesByCollection } from '~/utils/stats';
+import { activeSizeOf, bromidesByCollection, collectionStats } from '~/utils/stats';
 
 type Mode = 'quick' | 'scan';
 
@@ -25,6 +26,7 @@ export default function Page() {
   const { ownership } = useOwnership();
 
   const [collectionId, setCollectionId] = useState<string | null>(null);
+  const [size, setSize] = useState<string | undefined>(undefined);
   const [mode, setMode] = useState<Mode>('quick');
   const [seeded, setSeeded] = useState(false);
 
@@ -40,9 +42,29 @@ export default function Page() {
     [catalog.collections, collectionId]
   );
 
+  useEffect(() => {
+    setSize(collection?.sizes?.[0]);
+  }, [collection?.id, collection?.sizes]);
+
+  const activeSize = collection ? (activeSizeOf(collection, size) ?? undefined) : undefined;
+
   const bromides = useMemo(
+    () => (collection ? bromidesByCollection(catalog, collection.id, activeSize) : []),
+    [catalog, collection, activeSize]
+  );
+
+  const allBromides = useMemo(
     () => (collection ? bromidesByCollection(catalog, collection.id) : []),
     [catalog, collection]
+  );
+
+  const totalStats = useMemo(
+    () => (collection ? collectionStats(catalog, collection.id, ownership) : null),
+    [catalog, collection, ownership]
+  );
+  const totalImageCount = useMemo(
+    () => allBromides.filter((b) => b.imageUrl).length,
+    [allBromides]
   );
 
   const ownedCount = useMemo(
@@ -112,12 +134,39 @@ export default function Page() {
           value={collectionId}
           onSelect={setCollectionId}
         />
+        {collection.sizes?.length ? (
+          <HStack gap="2.5" alignItems="center" flexWrap="wrap">
+            <Text color="fg.muted" fontSize="xs" fontWeight="bold">
+              サイズ
+            </Text>
+            <SegmentGroup.Root
+              value={activeSize ?? ''}
+              onValueChange={(e) => setSize(e.value)}
+              size="sm"
+              orientation="horizontal"
+            >
+              <SegmentGroup.Indicator />
+              {collection.sizes.map((s) => (
+                <SegmentGroup.Item key={s} value={s}>
+                  <SegmentGroup.ItemText>{s}</SegmentGroup.ItemText>
+                  <SegmentGroup.ItemControl />
+                  <SegmentGroup.ItemHiddenInput />
+                </SegmentGroup.Item>
+              ))}
+            </SegmentGroup.Root>
+          </HStack>
+        ) : null}
       </Stack>
 
       <ScanProgress
-        label={mode === 'quick' ? '所持' : '画像あり'}
+        label={`${activeSize ? `${activeSize} ` : ''}${mode === 'quick' ? '所持' : '画像あり'}`}
         current={mode === 'quick' ? ownedCount : imageCount}
         total={bromides.length}
+        note={
+          activeSize && totalStats
+            ? `全体 ${mode === 'quick' ? totalStats.owned : totalImageCount}/${totalStats.total}`
+            : undefined
+        }
       />
 
       <Tabs.Root value={mode} onValueChange={(e) => setMode(e.value as Mode)}>
@@ -134,11 +183,11 @@ export default function Page() {
         </Tabs.List>
 
         <Tabs.Content value="quick">
-          <QuickRegister catalog={catalog} collection={collection} />
+          <QuickRegister catalog={catalog} collection={collection} size={activeSize} />
         </Tabs.Content>
 
         <Tabs.Content value="scan">
-          <ScanMode catalog={catalog} collection={collection} />
+          <ScanMode catalog={catalog} collection={collection} size={activeSize} />
         </Tabs.Content>
       </Tabs.Root>
     </Stack>
