@@ -80,6 +80,12 @@ storage objects. Authenticated non-admin `profiles.is_admin` escalation is guard
 `supabase/migrations/0003_profile_admin_guard.sql`; verify a deployed database has that migration
 before treating admin permissions as production-ready.
 
+To verify the deployed authenticated non-admin boundary, provide a disposable non-admin login:
+
+```bash
+SUPABASE_TEST_EMAIL=... SUPABASE_TEST_PASSWORD=... bun run verify:supabase-public
+```
+
 ## Data model
 
 Catalog source order: **Supabase (when configured) → localStorage cache → bundled seed**

@@ -73,3 +73,40 @@ requirePass(
   Boolean(upload.error),
   'anonymous upload unexpectedly succeeded'
 );
+
+const testEmail = process.env.SUPABASE_TEST_EMAIL;
+const testPassword = process.env.SUPABASE_TEST_PASSWORD;
+
+if (!testEmail || !testPassword) {
+  console.log('authenticated admin-escalation check: SKIP');
+  console.log('set SUPABASE_TEST_EMAIL and SUPABASE_TEST_PASSWORD for a disposable non-admin user');
+  process.exit(process.exitCode ?? 0);
+}
+
+const auth = await sb.auth.signInWithPassword({
+  email: testEmail,
+  password: testPassword
+});
+
+requirePass('test user sign-in', !auth.error && Boolean(auth.data.user), auth.error?.message);
+
+if (!auth.data.user) process.exit(process.exitCode ?? 1);
+
+const profile = await sb.from('profiles').select('id,is_admin').eq('id', auth.data.user.id).single();
+requirePass('test user profile readable', !profile.error, profile.error?.message);
+requirePass('test user is non-admin', profile.data?.is_admin === false, 'test user is already admin');
+
+if (profile.data?.is_admin === false) {
+  const escalation = await sb
+    .from('profiles')
+    .update({ is_admin: true })
+    .eq('id', auth.data.user.id)
+    .select('id,is_admin');
+  requirePass(
+    'non-admin profile admin escalation blocked',
+    Boolean(escalation.error),
+    'non-admin is_admin update unexpectedly succeeded'
+  );
+}
+
+await sb.auth.signOut();

@@ -74,6 +74,7 @@ Configured Supabase anon-policy check:
 - Public approved images read: pass
 - Anonymous submission insert blocked: pass
 - Anonymous storage upload blocked: pass
+- Authenticated non-admin `profiles.is_admin` update: not run; requires `SUPABASE_TEST_EMAIL` and `SUPABASE_TEST_PASSWORD` for a disposable non-admin user.
 
 Browser evidence:
 
@@ -101,4 +102,4 @@ Browser evidence:
 
 ## Remaining Risk
 
-- Deployed Supabase projects must apply `supabase/migrations/0003_profile_admin_guard.sql`. The repository schema now contains the guard, but an already-deployed database remains at risk until the migration is pushed.
+- Deployed Supabase projects must apply `supabase/migrations/0003_profile_admin_guard.sql`. The repository schema now contains the guard, but the deployed authenticated non-admin boundary still needs verification with a disposable non-admin account or DB/admin access.
