@@ -64,6 +64,16 @@ Commands:
 - `bun test src/data/catalog.test.ts src/lib/submissions.test.ts supabase/migrations.test.ts`
 - `bun run type-check`
 - `bun run build`
+- `bun run verify:supabase-public`
+
+Configured Supabase anon-policy check:
+
+- Project host: `defapgrwvxkhuyavytld.supabase.co`
+- Public members read: pass
+- Public collections read: pass
+- Public approved images read: pass
+- Anonymous submission insert blocked: pass
+- Anonymous storage upload blocked: pass
 
 Browser evidence:
 

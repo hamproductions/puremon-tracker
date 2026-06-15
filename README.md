@@ -30,7 +30,7 @@ bun run dev          # http://localhost:3000
 ```
 
 Other scripts: `bun run type-check`, `bun run lint` / `bun run fix`, `bun run build` (prerenders all
-routes to `dist/client/`), `bun run preview`.
+routes to `dist/client/`), `bun run preview`, `bun run verify:supabase-public`.
 
 ## Deploy
 
@@ -64,8 +64,21 @@ device-local catalog instead (handy for trying it out). Image upload requires Su
 
 ## Local Supabase (dev)
 
-`supabase start` (Docker) brings up the full stack and applies both migrations. Put the printed
+`supabase start` (Docker) brings up the full stack and applies migrations. Put the printed
 API URL + anon key in `.env`, then `bun run dev`.
+
+## Supabase policy verification
+
+With production Supabase env values in `.env`, run:
+
+```bash
+bun run verify:supabase-public
+```
+
+This verifies public catalog reads and confirms anonymous users cannot insert submissions or upload
+storage objects. Authenticated non-admin `profiles.is_admin` escalation is guarded by
+`supabase/migrations/0003_profile_admin_guard.sql`; verify a deployed database has that migration
+before treating admin permissions as production-ready.
 
 ## Data model
 

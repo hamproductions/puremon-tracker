@@ -9,6 +9,7 @@
     "ci:build": "NODE_ENV=production vike build",
     "test": "bun test",
     "type-check": "tsc",
+    "verify:supabase-public": "node scripts/verify-supabase-public.mjs",
     "check": "bun lint && bun type-check",
     "format": "prettier --write ./src",
     "lint": "oxlint src && eslint src --concurrency=auto",
