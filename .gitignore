@@ -12,3 +12,6 @@ supabase/.branches
 dogfood-output
 supabase/.branches
 supabase/.temp
+
+# Local Netlify folder
+.netlify
