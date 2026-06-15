@@ -181,7 +181,7 @@ export function BromideTile({
       </Box>
 
       {label ? (
-        <Text maxW="full" color="fg.muted" fontSize="2xs" textAlign="center" truncate>
+        <Text maxW="full" color="fg.muted" fontSize="xs" textAlign="center" truncate>
           {label}
         </Text>
       ) : null}

@@ -47,6 +47,14 @@ const config = defineConfig({
     }
   },
 
+  globalCss: {
+    '*:focus-visible': {
+      outline: '2px solid token(colors.accent.default)',
+      outlineOffset: '2px',
+      borderRadius: '2px'
+    }
+  },
+
   lightningcss: true
 });
 

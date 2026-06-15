@@ -27,6 +27,14 @@ export const theme: PartialTheme = {
   },
   semanticTokens: {
     colors: {
+      accent: {
+        default: { value: '{colors.blue.9}' },
+        emphasized: { value: '{colors.blue.10}' },
+        fg: { value: '{colors.white}' },
+        text: { value: '{colors.blue.11}' },
+        subtle: { value: '{colors.blue.3}' },
+        muted: { value: '{colors.blue.4}' }
+      },
       brand: {
         pink: { value: { base: '#ff4f99', _dark: '#ff79b0' } },
         sky: { value: { base: '#22b8e6', _dark: '#56ccf0' } }

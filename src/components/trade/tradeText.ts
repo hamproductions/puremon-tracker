@@ -61,27 +61,32 @@ function methodLabelCompact(method: TradeMethod, mailNote: string): string {
   }
 }
 
-function fullName(catalog: Catalog, b: Bromide): string {
-  if (!b.memberId) return '集合';
-  return memberMap(catalog).get(b.memberId)?.name ?? b.memberId;
-}
-
 function shortName(catalog: Catalog, b: Bromide): string {
   if (!b.memberId) return '集合';
   const m = memberMap(catalog).get(b.memberId);
   return m?.nickname ?? m?.name ?? b.memberId;
 }
 
+function setTitle(catalog: Catalog, b: Bromide): string {
+  return catalog.collections.find((c) => c.id === b.collectionId)?.title ?? '';
+}
+
+function spansMultipleSets(items: Bromide[]): boolean {
+  return new Set(items.map((b) => b.collectionId)).size > 1;
+}
+
 function sizePart(b: Bromide): string {
   return b.size ? `${b.size} ` : '';
 }
 
-function giveDetail(catalog: Catalog, item: GiveItem): string {
-  return `${fullName(catalog, item.bromide)} ${sizePart(item.bromide)}No.${item.bromide.no} ×${item.qty}`;
+function giveDetail(catalog: Catalog, item: GiveItem, withSet: boolean): string {
+  const set = withSet ? `${setTitle(catalog, item.bromide)} ` : '';
+  return `${set}${shortName(catalog, item.bromide)} ${sizePart(item.bromide)}No.${item.bromide.no} ×${item.qty}`;
 }
 
-function wantDetail(catalog: Catalog, b: Bromide): string {
-  return `${fullName(catalog, b)} ${sizePart(b)}No.${b.no}`;
+function wantDetail(catalog: Catalog, b: Bromide, withSet: boolean): string {
+  const set = withSet ? `${setTitle(catalog, b)} ` : '';
+  return `${set}${shortName(catalog, b)} ${sizePart(b)}No.${b.no}`;
 }
 
 interface MemberGroup {
@@ -121,20 +126,33 @@ function groupByMember(
 }
 
 function compactSide(catalog: Catalog, entries: { bromide: Bromide; suffix: string }[]): string {
-  return groupByMember(catalog, entries)
-    .map((g) => `${g.name}${g.parts.join(',')}`)
+  const byCollection = new Map<string, { bromide: Bromide; suffix: string }[]>();
+  for (const e of entries) {
+    const cid = e.bromide.collectionId;
+    if (!byCollection.has(cid)) byCollection.set(cid, []);
+    byCollection.get(cid)!.push(e);
+  }
+  const multi = byCollection.size > 1;
+  return [...byCollection.values()]
+    .map((es) => {
+      const members = groupByMember(catalog, es)
+        .map((g) => `${g.name}${g.parts.join(',')}`)
+        .join(' ');
+      return multi ? `《${setTitle(catalog, es[0].bromide)}》${members}` : members;
+    })
     .join(' ');
 }
 
 export function buildDetailText(input: TradeInput): string {
   const { catalog, gives, wants, conditions } = input;
+  const withSet = spansMultipleSets([...gives.map((g) => g.bromide), ...wants]);
   const lines: string[] = ['【ピュアリーモンスター ブロマイド 譲渡】'];
 
   if (gives.length > 0) {
-    lines.push(`譲：${gives.map((g) => giveDetail(catalog, g)).join(' / ')}`);
+    lines.push(`譲：${gives.map((g) => giveDetail(catalog, g, withSet)).join(' / ')}`);
   }
   if (wants.length > 0) {
-    lines.push(`求：${wants.map((w) => wantDetail(catalog, w)).join(' / ')}`);
+    lines.push(`求：${wants.map((w) => wantDetail(catalog, w, withSet)).join(' / ')}`);
   }
 
   lines.push(`方法：${methodLabel(conditions.method, conditions.mailNote)}`);
