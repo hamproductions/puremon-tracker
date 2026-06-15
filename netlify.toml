@@ -4,6 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  BUN_VERSION = "1.3.4"
 
 # Supabase env (PUBLIC_ENV__SUPABASE_URL / _ANON_KEY / _ADMIN_HANDLES) are set as
 # Netlify site environment variables, not committed here. Without them the site
