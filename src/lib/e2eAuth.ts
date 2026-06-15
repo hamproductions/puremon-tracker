@@ -7,11 +7,13 @@ export function readE2EProfile(): Profile | null {
   const role = new URLSearchParams(window.location.search).get('e2e_user');
   if (role === 'user' || role === 'admin') {
     const profile = makeE2EProfile(role);
-    window.localStorage.setItem(KEY, JSON.stringify(profile));
+    window.localStorage.removeItem(KEY);
+    window.sessionStorage.setItem(KEY, JSON.stringify(profile));
     return profile;
   }
   try {
-    const raw = window.localStorage.getItem(KEY);
+    window.localStorage.removeItem(KEY);
+    const raw = window.sessionStorage.getItem(KEY);
     return raw ? (JSON.parse(raw) as Profile) : null;
   } catch {
     return null;
@@ -21,6 +23,7 @@ export function readE2EProfile(): Profile | null {
 export function clearE2EProfile() {
   if (!import.meta.env.DEV || typeof window === 'undefined') return;
   window.localStorage.removeItem(KEY);
+  window.sessionStorage.removeItem(KEY);
 }
 
 export function hasE2EProfile(): boolean {

@@ -15,4 +15,12 @@ describe('supabase policies', () => {
     expect(sql).toContain('not public.is_admin(auth.uid())');
     expect(sql).toContain('before update on public.profiles');
   });
+
+  test('keeps profile update policy from accepting admin flag escalation', () => {
+    const sql = migration('0004_profile_update_policy_guard.sql');
+
+    expect(sql).toContain('drop policy if exists "users update own profile"');
+    expect(sql).toContain('is_admin = public.is_admin(auth.uid())');
+    expect(sql).toContain('create policy "admins update profiles"');
+  });
 });

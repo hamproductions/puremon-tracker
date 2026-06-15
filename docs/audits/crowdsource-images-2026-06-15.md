@@ -55,7 +55,7 @@
    - Fixed: `setBromideImage` checks current profile admin status before writing or deleting canonical images.
 
 8. Supabase profile policy allowed own-profile updates on a row containing `is_admin`.
-   - Fixed: `0003_profile_admin_guard.sql` blocks authenticated non-admin users from changing `profiles.is_admin`, while still allowing SQL editor/service-role admin setup.
+   - Fixed in repo: `0003_profile_admin_guard.sql` adds the trigger guard, and `0004_profile_update_policy_guard.sql` tightens the own-profile update policy.
 
 ## Verification
 
@@ -74,7 +74,7 @@ Configured Supabase anon-policy check:
 - Public approved images read: pass
 - Anonymous submission insert blocked: pass
 - Anonymous storage upload blocked: pass
-- Authenticated non-admin `profiles.is_admin` update: not run; requires `SUPABASE_TEST_EMAIL` and `SUPABASE_TEST_PASSWORD` for a disposable non-admin user.
+- Authenticated non-admin `profiles.is_admin` update with `test_user@ham-san.net`: fails on the currently deployed database until `0004_profile_update_policy_guard.sql` is applied; verifier rolls back the probe account to `is_admin=false`.
 
 Browser evidence:
 
@@ -102,4 +102,4 @@ Browser evidence:
 
 ## Remaining Risk
 
-- Deployed Supabase projects must apply `supabase/migrations/0003_profile_admin_guard.sql`. The repository schema now contains the guard, but the deployed authenticated non-admin boundary still needs verification with a disposable non-admin account or DB/admin access.
+- Deployed Supabase projects must apply `supabase/migrations/0003_profile_admin_guard.sql` and `supabase/migrations/0004_profile_update_policy_guard.sql`. Live verification with `test_user@ham-san.net` showed the deployed DB had not yet blocked non-admin `is_admin` escalation.

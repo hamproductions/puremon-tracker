@@ -102,6 +102,13 @@ if (profile.data?.is_admin === false) {
     .update({ is_admin: true })
     .eq('id', auth.data.user.id)
     .select('id,is_admin');
+  if (!escalation.error) {
+    const rollback = await sb
+      .from('profiles')
+      .update({ is_admin: false })
+      .eq('id', auth.data.user.id);
+    if (rollback.error) console.error(`non-admin rollback failed: ${rollback.error.message}`);
+  }
   requirePass(
     'non-admin profile admin escalation blocked',
     Boolean(escalation.error),

@@ -33,14 +33,15 @@ export function buildMergedCatalog(
   customCollections: Collection[],
   customMembers: Member[],
   localImages: Record<string, string>,
-  deletedCollectionIds: string[] = []
+  deletedCollectionIds: string[] = [],
+  options: { includeLocalImages?: boolean } = {}
 ): Catalog {
   const members = mergeById(baseMembers, customMembers).sort((a, b) => a.order - b.order);
   const deleted = new Set(deletedCollectionIds);
   const collections = mergeById(baseCollections, customCollections)
     .filter((c) => !deleted.has(c.id))
     .sort((a, b) => (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''));
-  const images = { ...baseImages, ...localImages };
+  const images = options.includeLocalImages === false ? baseImages : { ...baseImages, ...localImages };
   const bromides = collections
     .flatMap(buildBromides)
     .map((b) => (images[b.id] ? { ...b, imageUrl: images[b.id] } : b));
@@ -67,8 +68,15 @@ export function useCatalog(): Catalog {
     void refreshRemoteCatalog();
   }, []);
 
+  useEffect(() => {
+    if (!isSupabaseConfigured || hasE2EProfile()) return;
+    if (Object.keys(localImages).length === 0) return;
+    bromideImagesStore.set({});
+  }, [localImages]);
+
   return useMemo(() => {
     const e2e = hasE2EProfile();
+    const includeLocalImages = e2e || !isSupabaseConfigured;
     const baseMembers =
       !e2e && remote && remote.members.length > 0 ? remote.members : seedCatalog.members;
     const baseCollections = remote
@@ -86,7 +94,8 @@ export function useCatalog(): Catalog {
       customCollections,
       customMembers,
       localImages,
-      deletedCollections
+      deletedCollections,
+      { includeLocalImages }
     );
   }, [remote, customCollections, customMembers, localImages, deletedCollections]);
 }
