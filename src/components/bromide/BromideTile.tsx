@@ -3,6 +3,7 @@ import { Box, Center, HStack, Stack, styled } from 'styled-system/jsx';
 import { Text } from '~/components/ui/text';
 import type { Bromide, Member } from '~/types';
 import { readableText } from '~/utils/color';
+import { slotLabel } from '~/utils/stats';
 
 interface BromideTileProps {
   bromide: Bromide;
@@ -43,7 +44,7 @@ export function BromideTile({
   const color = member?.color ?? '#2196f3';
   const ink = readableText(color);
   const who = member ? member.name : bromide.memberId ? '' : '集合';
-  const name = `${who ? `${who} ` : ''}${bromide.size ? `${bromide.size} ` : ''}No.${bromide.no}`;
+  const name = `${who ? `${who} ` : ''}${bromide.size ? `${bromide.size} ` : ''}${slotLabel(bromide)}`;
   const sm = size === 'sm';
   const interactive = Boolean(onToggle);
   const editClickable = adminEdit && Boolean(onEditMember);

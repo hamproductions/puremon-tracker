@@ -3,7 +3,7 @@ import { Box, Grid, HStack, Stack } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
 import { Text } from '~/components/ui/text';
 import type { Bromide, Catalog, Collection, OwnershipMap } from '~/types';
-import { duplicateBromides, memberColor, missingBromides } from '~/utils/stats';
+import { duplicateBromides, memberColor, missingBromides, slotLabel } from '~/utils/stats';
 import { SelectableChip } from './chips';
 
 type Side = 'give' | 'want';
@@ -147,8 +147,8 @@ function SideSection({
                         label={memberShort(catalog, bromide)}
                         sub={
                           side === 'give'
-                            ? `${sizePart}No.${bromide.no} ・ ×${count - 1}`
-                            : `${sizePart}No.${bromide.no}`
+                            ? `${sizePart}${slotLabel(bromide)} ・ ×${count - 1}`
+                            : `${sizePart}${slotLabel(bromide)}`
                         }
                         selected={selected.has(bromide.id)}
                         onClick={() => onToggle(bromide.id)}
@@ -169,7 +169,7 @@ function SideSection({
 function memberShort(catalog: Catalog, b: Bromide): string {
   if (!b.memberId) return '集合';
   const m = catalog.members.find((x) => x.id === b.memberId);
-  return m?.name ?? `No.${b.no}`;
+  return m?.name ?? slotLabel(b);
 }
 
 interface SelectionPanelProps {

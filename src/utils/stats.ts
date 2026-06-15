@@ -152,10 +152,14 @@ export function memberLabel(catalog: Catalog, memberId: string | null): string {
 
 export function bromideLabel(catalog: Catalog, bromide: Bromide): string {
   const sizePart = bromide.size ? `${bromide.size} ` : '';
-  return `${memberLabel(catalog, bromide.memberId)} ${sizePart}No.${bromide.no}`;
+  return `${memberLabel(catalog, bromide.memberId)} ${sizePart}${slotLabel(bromide)}`;
 }
 
 export function memberColor(catalog: Catalog, memberId: string | null): string {
   if (!memberId) return '#FF5FA2';
   return memberMap(catalog).get(memberId)?.color ?? '#FF5FA2';
+}
+
+export function slotLabel(bromide: Pick<Bromide, 'no' | 'type' | 'label'>): string {
+  return bromide.label ?? bromide.type ?? `No.${bromide.no}`;
 }

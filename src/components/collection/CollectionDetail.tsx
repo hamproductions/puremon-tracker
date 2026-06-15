@@ -23,7 +23,7 @@ import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
 import { catalogActions } from '~/hooks/useCatalog';
 import type { Bromide, Catalog, Collection, Member } from '~/types';
-import { buildGrid, collectionStats, memberMap } from '~/utils/stats';
+import { buildGrid, collectionStats, memberMap, slotLabel } from '~/utils/stats';
 import { toAppUrl } from '~/utils/url';
 import { formatReleaseDate, kindLabel, memberCountLabel } from './format';
 
@@ -80,22 +80,27 @@ export function CollectionDetail({
     null
   );
   const [addNo, setAddNo] = useState(1);
+  const [addType, setAddType] = useState('');
 
-  const updateItems = (items: { memberId: string | null; no: number }[]) => {
+  const updateItems = (
+    items: { memberId: string | null; no: number; type?: string; label?: string }[]
+  ) => {
     void catalogActions.upsertCollection({ ...collection, items });
   };
   const retagItem = (target: Bromide, memberId: string | null) => {
     if (memberId === target.memberId) return;
     const clash = (collection.items ?? []).some(
-      (it) => it.memberId === memberId && it.no === target.no
+      (it) => it.memberId === memberId && it.no === target.no && it.type === target.type
     );
     if (clash) {
-      toast({ title: 'そのメンバーのNo.はすでにあります', type: 'error' });
+      toast({ title: 'そのタグの画像はすでにあります', type: 'error' });
       return;
     }
     updateItems(
       (collection.items ?? []).map((it) =>
-        it.memberId === target.memberId && it.no === target.no ? { memberId, no: it.no } : it
+        it.memberId === target.memberId && it.no === target.no && it.type === target.type
+          ? { memberId, no: it.no, type: it.type, label: it.label }
+          : it
       )
     );
     toast({ title: 'メンバーを変更しました', type: 'success' });
@@ -103,17 +108,21 @@ export function CollectionDetail({
   const removeItem = (target: Bromide) => {
     updateItems(
       (collection.items ?? []).filter(
-        (it) => !(it.memberId === target.memberId && it.no === target.no)
+        (it) => !(it.memberId === target.memberId && it.no === target.no && it.type === target.type)
       )
     );
     toast({ title: 'カードを削除しました', type: 'success' });
   };
-  const addItem = (memberId: string | null, no: number) => {
-    if ((collection.items ?? []).some((it) => it.memberId === memberId && it.no === no)) {
+  const addItem = (memberId: string | null, no: number, type?: string) => {
+    if (
+      (collection.items ?? []).some(
+        (it) => it.memberId === memberId && it.no === no && it.type === type
+      )
+    ) {
       toast({ title: 'すでに追加済みです', type: 'error' });
       return;
     }
-    updateItems([...(collection.items ?? []), { memberId, no }]);
+    updateItems([...(collection.items ?? []), { memberId, no, type }]);
     toast({ title: 'カードを追加しました', type: 'success' });
   };
   const removeImage = async (target: Bromide) => {
@@ -422,6 +431,7 @@ export function CollectionDetail({
             adminEdit && isMixed
               ? () => {
                   setAddNo(1);
+                  setAddType('');
                   setEditTarget({ mode: 'add' });
                 }
               : undefined
@@ -449,7 +459,7 @@ export function CollectionDetail({
               {editTarget?.mode === 'add' ? (
                 <HStack gap="2" alignItems="center">
                   <Text fontSize="sm" fontWeight="bold">
-                    No.
+                    管理番号
                   </Text>
                   <styled.input
                     type="number"
@@ -466,8 +476,26 @@ export function CollectionDetail({
                   />
                 </HStack>
               ) : null}
+              {editTarget?.mode === 'add' ? (
+                <Stack gap="1">
+                  <Text fontSize="sm" fontWeight="bold">
+                    タイプ / タグ
+                  </Text>
+                  <styled.input
+                    value={addType}
+                    onChange={(e) => setAddType(e.target.value)}
+                    placeholder="A, 引き, レア"
+                    borderColor="border.default"
+                    borderRadius="l2"
+                    borderWidth="1px"
+                    py="1.5"
+                    px="2.5"
+                    fontSize="sm"
+                  />
+                </Stack>
+              ) : null}
               <Text color="fg.muted" fontSize="xs">
-                メンバーを選択してください
+                メンバータグを選択してください
               </Text>
               <Wrap gap="1.5">
                 {[...catalog.members, null].map((m) => {
@@ -478,7 +506,8 @@ export function CollectionDetail({
                       key={memberId ?? '__group__'}
                       type="button"
                       onClick={() => {
-                        if (editTarget?.mode === 'add') addItem(memberId, addNo);
+                        if (editTarget?.mode === 'add')
+                          addItem(memberId, addNo, addType.trim() || undefined);
                         else if (editTarget?.bromide) retagItem(editTarget.bromide, memberId);
                         setEditTarget(null);
                       }}
@@ -629,7 +658,7 @@ function MemberGridTable({
               fontWeight="bold"
               bgColor="board.panelSolid"
             >
-              No.{no}
+              {String(no)}
             </Center>
             {grid.members.map((m) => {
               const b = grid.cell(m.id, no);
@@ -741,7 +770,7 @@ function MemberSections({
                     count={ownership[b.id] ?? 0}
                     onToggle={() => toggle(b.id)}
                     onSetCount={(n) => setCount(b.id, n)}
-                    label={`No.${b.no}`}
+                    label={slotLabel(b)}
                     size="md"
                     showStepper
                     adminEdit={adminEdit}
@@ -803,7 +832,7 @@ function FlatGridView({
               count={ownership[b.id] ?? 0}
               onToggle={() => toggle(b.id)}
               onSetCount={(n) => setCount(b.id, n)}
-              label={member ? `${member.name} No.${b.no}` : `集合 No.${b.no}`}
+              label={member ? `${member.name} ${slotLabel(b)}` : `集合 ${slotLabel(b)}`}
               size="md"
               showStepper
               adminEdit={adminEdit}

@@ -153,10 +153,15 @@ export function bromideId(
   collectionId: string,
   memberId: string | null,
   no: number,
-  size: string | null = null
+  size: string | null = null,
+  type?: string
 ): string {
   const base = memberId ? `${collectionId}:${memberId}` : `${collectionId}:flat`;
-  return size ? `${base}:${size}:${no}` : `${base}:${no}`;
+  const parts = [base];
+  if (size) parts.push(size);
+  if (type) parts.push(slugPart(type));
+  parts.push(String(no));
+  return parts.join(':');
 }
 
 export function buildBromides(collection: Collection): Bromide[] {
@@ -167,11 +172,12 @@ export function buildBromides(collection: Collection): Bromide[] {
     const items = collection.items ?? [];
     return sizes.flatMap((size) =>
       items.map((it) => ({
-        id: bromideId(collection.id, it.memberId, it.no, size),
+        id: bromideId(collection.id, it.memberId, it.no, size, it.type),
         collectionId: collection.id,
         memberId: it.memberId,
         size,
         no: it.no,
+        type: it.type,
         label: it.label,
         createdAt
       }))
@@ -187,6 +193,7 @@ export function buildBromides(collection: Collection): Bromide[] {
         memberId,
         size,
         no,
+        type: String(no),
         createdAt
       }))
     )
@@ -203,3 +210,7 @@ export function buildCatalog(): Catalog {
 }
 
 export const seedCatalog: Catalog = buildCatalog();
+
+function slugPart(value: string): string {
+  return encodeURIComponent(value.trim().toLowerCase()).replace(/%/g, '~');
+}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FaCheck, FaPenToSquare, FaPlus, FaTrash, FaXmark } from 'react-icons/fa6';
-import { Box, Grid, HStack, Stack, Wrap } from 'styled-system/jsx';
+import { Box, Grid, HStack, Stack, Wrap, styled } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Dialog } from '~/components/ui/dialog';
@@ -102,7 +102,12 @@ export function CollectionEditor({
         ),
         count: editing.numbers.length || 1,
         sizes: (editing.sizes ?? []).join(', '),
-        items: (editing.items ?? []).map((it) => ({ memberId: it.memberId, no: it.no })),
+        items: (editing.items ?? []).map((it) => ({
+          memberId: it.memberId,
+          no: it.no,
+          type: it.type,
+          label: it.label
+        })),
         addMemberId: catalog.members[0]?.id ?? null,
         addNo: 1
       });
@@ -135,9 +140,14 @@ export function CollectionEditor({
   );
 
   const addItem = () => {
+    const input =
+      typeof document === 'undefined'
+        ? null
+        : document.querySelector<HTMLInputElement>('[data-add-type-input]');
+    const type = input?.value.trim() || undefined;
     setForm((prev) => {
       const exists = prev.items.some(
-        (it) => it.memberId === prev.addMemberId && it.no === prev.addNo
+        (it) => it.memberId === prev.addMemberId && it.no === prev.addNo && it.type === type
       );
       if (exists) {
         toast({ title: 'すでに追加済みです', type: 'error' });
@@ -145,9 +155,10 @@ export function CollectionEditor({
       }
       return {
         ...prev,
-        items: [...prev.items, { memberId: prev.addMemberId, no: prev.addNo }]
+        items: [...prev.items, { memberId: prev.addMemberId, no: prev.addNo, type }]
       };
     });
+    if (input) input.value = '';
   };
 
   const removeItem = (index: number) =>
@@ -177,7 +188,12 @@ export function CollectionEditor({
             kind: 'mixed',
             memberIds: [],
             numbers: [],
-            items: form.items.map((it) => ({ memberId: it.memberId, no: it.no }))
+            items: form.items.map((it) => ({
+              memberId: it.memberId,
+              no: it.no,
+              type: it.type,
+              label: it.label
+            }))
           }
         : {
             ...base,
@@ -510,7 +526,7 @@ export function CollectionEditor({
                   </Wrap>
                   <HStack gap="2" alignItems="end">
                     <Stack flex="1" gap="1.5">
-                      <FieldLabel>No.</FieldLabel>
+                      <FieldLabel>管理番号</FieldLabel>
                       <NumberInput
                         value={String(form.addNo)}
                         min={1}
@@ -520,7 +536,30 @@ export function CollectionEditor({
                         }
                       />
                     </Stack>
-                    <Button variant="outline" onClick={addItem}>
+                    <Stack flex="2" gap="1.5">
+                      <FieldLabel>タイプ / タグ</FieldLabel>
+                      <styled.input
+                        data-add-type-input
+                        placeholder="A, 引き, レア"
+                        borderColor="border.default"
+                        borderRadius="l2"
+                        borderWidth="1px"
+                        h="10"
+                        px="3"
+                        color="fg.default"
+                        fontSize="sm"
+                        bgColor="bg.default"
+                      />
+                    </Stack>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        addItem();
+                      }}
+                    >
                       <FaPlus />
                       追加
                     </Button>
@@ -555,7 +594,7 @@ export function CollectionEditor({
                               {m ? m.name : '集合'}
                             </Text>
                             <Text color="fg.muted" fontSize="xs" fontWeight="bold">
-                              No.{it.no}
+                              {it.type ?? `No.${it.no}`}
                             </Text>
                             <Box
                               as="button"
@@ -575,13 +614,13 @@ export function CollectionEditor({
                     </Stack>
                   ) : (
                     <Text color="fg.subtle" fontSize="xs">
-                      メンバーまたは集合タグを選び、No. を入力して追加してください
+                      メンバータグとタイプを選び、必要なら管理番号で区別してください
                     </Text>
                   )}
                 </Stack>
               ) : null}
 
-              <Button onClick={save} disabled={!canSave}>
+              <Button type="button" onClick={save} disabled={!canSave}>
                 {editing ? <FaCheck /> : <FaPlus />}
                 {editing ? '更新する' : '作成する'}
               </Button>

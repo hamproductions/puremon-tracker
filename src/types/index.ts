@@ -18,6 +18,7 @@ export type CollectionKind = 'member_grid' | 'flat' | 'mixed';
 export interface BromideSpec {
   memberId: string | null;
   no: number;
+  type?: string;
   label?: string;
 }
 
@@ -41,6 +42,7 @@ export interface Bromide {
   memberId: string | null;
   size: string | null;
   no: number;
+  type?: string;
   label?: string;
   imageUrl?: string;
   createdAt: string;

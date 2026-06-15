@@ -1,5 +1,5 @@
 import type { Bromide, Catalog } from '~/types';
-import { memberMap } from '~/utils/stats';
+import { memberMap, slotLabel } from '~/utils/stats';
 
 export type TradeMethod = 'mail' | 'handover' | 'either';
 export type TradeFormat = 'detail' | 'compact';
@@ -81,12 +81,12 @@ function sizePart(b: Bromide): string {
 
 function giveDetail(catalog: Catalog, item: GiveItem, withSet: boolean): string {
   const set = withSet ? `${setTitle(catalog, item.bromide)} ` : '';
-  return `${set}${shortName(catalog, item.bromide)} ${sizePart(item.bromide)}No.${item.bromide.no} ×${item.qty}`;
+  return `${set}${shortName(catalog, item.bromide)} ${sizePart(item.bromide)}${slotLabel(item.bromide)} ×${item.qty}`;
 }
 
 function wantDetail(catalog: Catalog, b: Bromide, withSet: boolean): string {
   const set = withSet ? `${setTitle(catalog, b)} ` : '';
-  return `${set}${shortName(catalog, b)} ${sizePart(b)}No.${b.no}`;
+  return `${set}${shortName(catalog, b)} ${sizePart(b)}${slotLabel(b)}`;
 }
 
 interface MemberGroup {
