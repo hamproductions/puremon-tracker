@@ -125,9 +125,15 @@ function SideSection({
                     as="button"
                     onClick={() => onSetMany(groupIds, !groupOn)}
                     flexShrink="0"
-                    color="fg.subtle"
-                    fontSize="2xs"
-                    _hover={{ color: 'accent.text' }}
+                    borderColor="board.border"
+                    borderRadius="md"
+                    borderWidth="1px"
+                    py="1"
+                    px="2"
+                    color="fg.muted"
+                    fontSize="xs"
+                    fontWeight="medium"
+                    _hover={{ color: 'accent.text', borderColor: 'accent.default' }}
                   >
                     {groupOn ? '解除' : '選択'}
                   </Box>

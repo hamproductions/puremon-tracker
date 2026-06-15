@@ -113,7 +113,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </HStack>
             <HStack gap="1" flexShrink="0">
               <AuthButton />
-              <ColorModeToggle />
+              <Box hideBelow="md">
+                <ColorModeToggle />
+              </Box>
               <Box hideFrom="md">
                 <IconButton
                   variant="ghost"
@@ -141,7 +143,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <HStack justifyContent="space-between" alignItems="center" w="full">
                 <Brand size="sm" />
                 <Drawer.CloseTrigger asChild>
-                  <IconButton variant="ghost" size="sm">
+                  <IconButton variant="ghost" size="sm" aria-label="メニューを閉じる">
                     <BiX size={22} />
                   </IconButton>
                 </Drawer.CloseTrigger>
@@ -155,8 +157,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Stack>
             </Drawer.Body>
             <Drawer.Footer>
-              <HStack justifyContent="space-between" w="full">
-                <AuthButton />
+              <HStack justifyContent="space-between" alignItems="center" w="full">
+                <styled.span color="fg.muted" fontSize="sm">
+                  テーマ
+                </styled.span>
                 <ColorModeToggle />
               </HStack>
             </Drawer.Footer>
