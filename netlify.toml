@@ -1,0 +1,10 @@
+[build]
+  command = "bun run build"
+  publish = "dist/client"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Supabase env (PUBLIC_ENV__SUPABASE_URL / _ANON_KEY / _ADMIN_HANDLES) are set as
+# Netlify site environment variables, not committed here. Without them the site
+# still runs in local-first mode off the bundled seed.
