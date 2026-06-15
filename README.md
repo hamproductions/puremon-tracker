@@ -38,29 +38,42 @@ routes to `dist/client/`), `bun run preview`.
 static, GitHub Pages, Cloudflare Pages). For a subpath (e.g. GitHub Pages) set
 `PUBLIC_ENV__BASE_URL=/puremon-tracker/` before building.
 
-## Supabase (optional)
+## Supabase (for production — server-defined catalog + login)
 
-The app runs without any backend. To enable login + cloud crowdsourcing:
+The app runs with no backend (bundled seed + localStorage). For production, where **collections
+are defined on the server** (an admin defines them once and every visitor sees them), wire Supabase:
 
 1. Create a Supabase project.
-2. **Auth → Providers → Twitter**: enable and set your X app keys. Add your deploy URL to redirect URLs.
-3. Run [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) in the SQL editor
-   (creates `profiles`, `submissions`, `ownership`, `trades`, the `bromides` storage bucket + RLS).
-4. Copy `.env.example` → `.env` and fill `PUBLIC_ENV__SUPABASE_URL`, `PUBLIC_ENV__SUPABASE_ANON_KEY`.
-5. Grant yourself admin: either add your handle to `PUBLIC_ENV__ADMIN_HANDLES` (UI gate), and/or
-   `update public.profiles set is_admin = true where handle = 'yourhandle';` (RLS enforcement).
+2. **Auth → Providers → Twitter**: enable and set your X app keys; add your deploy URL to the redirect list.
+3. Run both migrations in the SQL editor (or `supabase db push`):
+   - [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) — `profiles`, `submissions`,
+     `ownership`, `trades`, the `bromides` storage bucket, `is_admin()`, + RLS.
+   - [`supabase/migrations/0002_catalog.sql`](supabase/migrations/0002_catalog.sql) — **the catalog**:
+     `members`, `collections`, `bromide_images` (public read, admin-only writes) + the initial data.
+4. Copy `.env.example` → `.env`, fill `PUBLIC_ENV__SUPABASE_URL` + `PUBLIC_ENV__SUPABASE_ANON_KEY`, rebuild.
+5. Make yourself admin: `update public.profiles set is_admin = true where handle = 'yourhandle';`
+   (and add your handle to `PUBLIC_ENV__ADMIN_HANDLES` so the in-app `/admin` gate opens).
 
-## Admin without Supabase
+Once configured, the app fetches the catalog from Supabase (cached in `localStorage` for offline), and
+everything an admin does on `/admin` — create/edit collections, register/approve bromide images — writes
+to the server, so all users see it. Anonymous visitors can still browse (public read), and the app stays
+usable offline from cache. Without Supabase, `/admin` → **ローカル管理モードを有効化** edits a
+device-local catalog instead (handy for trying it out).
 
-On `/admin`, toggle **ローカル管理モードを有効化** to manage collections/images locally on your own
-device (stored in `localStorage`) — useful for seeding the catalog offline before wiring Supabase.
+## Local Supabase (dev)
+
+`supabase start` (Docker) brings up the full stack and applies both migrations. Put the printed
+API URL + anon key in `.env`, then `bun run dev`.
 
 ## Data model
 
-The catalog (group, 7 members, collections, bromides) ships as code seed in
-`src/data/catalog.ts` and is admin-extendable. Ownership/submissions/trades live in `localStorage`
-via a small `useSyncExternalStore`-backed store (`src/data/store.ts`), and optionally sync to Supabase.
-Bromide IDs are stable: `"<collectionId>:<memberId>:<no>"` (or `"<collectionId>:flat:<no>"`).
+Catalog source order: **Supabase (when configured) → localStorage cache → bundled seed**
+(`src/data/catalog.ts`). Members + collections live in the `members`/`collections` tables; bromides are
+generated client-side from each collection's params (`member_grid` = members × numbers × sizes, `mixed` =
+an explicit per-item tagged list, `flat` = numbers only), and approved images come from `bromide_images`.
+Ownership/submissions/trades are per-device `localStorage` (`src/data/store.ts`), optionally synced to
+Supabase. Bromide IDs are stable: `"<collectionId>:<memberId>:<size>:<no>"` (size/member segments omitted
+when absent; group items use `flat`).
 
 ---
 

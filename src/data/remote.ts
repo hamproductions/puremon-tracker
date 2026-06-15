@@ -1,0 +1,141 @@
+import { getSupabase } from '~/lib/supabase';
+import type { Collection, Member } from '~/types';
+
+export interface RemoteCatalog {
+  members: Member[];
+  collections: Collection[];
+  images: Record<string, string>;
+}
+
+interface CollectionRow {
+  id: string;
+  title: string;
+  description: string | null;
+  release_date: string | null;
+  kind: Collection['kind'];
+  member_ids: string[] | null;
+  numbers: number[] | null;
+  sizes: string[] | null;
+  items: Collection['items'] | null;
+  created_at: string;
+}
+
+interface MemberRow {
+  id: string;
+  name: string;
+  name_kana: string;
+  nickname: string;
+  color: string;
+  order: number;
+}
+
+function toMember(r: MemberRow): Member {
+  return {
+    id: r.id,
+    name: r.name,
+    nameKana: r.name_kana,
+    nickname: r.nickname,
+    color: r.color,
+    order: r.order
+  };
+}
+
+function toCollection(r: CollectionRow): Collection {
+  return {
+    id: r.id,
+    title: r.title,
+    description: r.description ?? undefined,
+    releaseDate: r.release_date ?? undefined,
+    kind: r.kind,
+    memberIds: r.member_ids ?? [],
+    numbers: r.numbers ?? [],
+    sizes: r.sizes && r.sizes.length > 0 ? r.sizes : undefined,
+    items: r.items ?? undefined,
+    createdAt: r.created_at
+  };
+}
+
+function fromCollection(c: Collection): CollectionRow {
+  return {
+    id: c.id,
+    title: c.title,
+    description: c.description ?? null,
+    release_date: c.releaseDate ?? null,
+    kind: c.kind,
+    member_ids: c.memberIds,
+    numbers: c.numbers,
+    sizes: c.sizes ?? null,
+    items: c.items ?? null,
+    created_at: c.createdAt
+  };
+}
+
+function fromMember(m: Member): MemberRow {
+  return {
+    id: m.id,
+    name: m.name,
+    name_kana: m.nameKana,
+    nickname: m.nickname,
+    color: m.color,
+    order: m.order
+  };
+}
+
+export async function fetchRemoteCatalog(): Promise<RemoteCatalog | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  try {
+    const [members, collections, images] = await Promise.all([
+      sb.from('members').select('*').order('order'),
+      sb.from('collections').select('*'),
+      sb.from('bromide_images').select('*')
+    ]);
+    if (members.error || collections.error || images.error) return null;
+    const imageMap: Record<string, string> = {};
+    for (const row of (images.data ?? []) as { bromide_id: string; image_url: string }[]) {
+      imageMap[row.bromide_id] = row.image_url;
+    }
+    return {
+      members: ((members.data ?? []) as MemberRow[]).map(toMember),
+      collections: ((collections.data ?? []) as CollectionRow[]).map(toCollection),
+      images: imageMap
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function upsertCollectionRemote(collection: Collection): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { error } = await sb.from('collections').upsert(fromCollection(collection));
+  if (error) throw error;
+}
+
+export async function deleteCollectionRemote(id: string): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { error } = await sb.from('collections').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function upsertMemberRemote(member: Member): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const { error } = await sb.from('members').upsert(fromMember(member));
+  if (error) throw error;
+}
+
+export async function setBromideImageRemote(bromideId: string, url: string | null): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  if (url) {
+    const { error } = await sb
+      .from('bromide_images')
+      .upsert({ bromide_id: bromideId, image_url: url });
+    if (error) throw error;
+  } else {
+    const { error } = await sb.from('bromide_images').delete().eq('bromide_id', bromideId);
+    if (error) throw error;
+  }
+}

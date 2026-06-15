@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import type { RemoteCatalog } from '~/data/remote';
 import type { Collection, Member, OwnershipMap, Submission, TradeListing } from '~/types';
 
 type Listener = () => void;
@@ -91,3 +92,7 @@ export const ownershipStore = createPersistedStore<OwnershipMap>('puremon:owners
 export const submissionsStore = createPersistedStore<Submission[]>('puremon:submissions', []);
 export const tradesStore = createPersistedStore<TradeListing[]>('puremon:trades', []);
 export const localAdminStore = createPersistedStore<boolean>('puremon:admin', false);
+export const remoteCatalogStore = createPersistedStore<RemoteCatalog | null>(
+  'puremon:remote-catalog',
+  null
+);
