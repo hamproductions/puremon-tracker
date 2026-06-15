@@ -45,11 +45,13 @@ are defined on the server** (an admin defines them once and every visitor sees t
 
 1. Create a Supabase project.
 2. **Auth → Providers → Twitter**: enable and set your X app keys; add your deploy URL to the redirect list.
-3. Run both migrations in the SQL editor (or `supabase db push`):
+3. Run all migrations in the SQL editor (or `supabase db push`):
    - [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) — `profiles`, `submissions`,
      `ownership`, `trades`, the `bromides` storage bucket, `is_admin()`, + RLS.
    - [`supabase/migrations/0002_catalog.sql`](supabase/migrations/0002_catalog.sql) — **the catalog**:
      `members`, `collections`, `bromide_images` (public read, admin-only writes) + the initial data.
+   - [`supabase/migrations/0003_profile_admin_guard.sql`](supabase/migrations/0003_profile_admin_guard.sql) —
+     prevents authenticated users from changing their own admin flag.
 4. Copy `.env.example` → `.env`, fill `PUBLIC_ENV__SUPABASE_URL` + `PUBLIC_ENV__SUPABASE_ANON_KEY`, rebuild.
 5. Make yourself admin: `update public.profiles set is_admin = true where handle = 'yourhandle';`
    (and add your handle to `PUBLIC_ENV__ADMIN_HANDLES` so the in-app `/admin` gate opens).

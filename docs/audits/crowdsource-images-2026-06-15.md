@@ -54,11 +54,14 @@
 7. Canonical image writes depended on caller/UI discipline.
    - Fixed: `setBromideImage` checks current profile admin status before writing or deleting canonical images.
 
+8. Supabase profile policy allowed own-profile updates on a row containing `is_admin`.
+   - Fixed: `0003_profile_admin_guard.sql` blocks authenticated non-admin users from changing `profiles.is_admin`, while still allowing SQL editor/service-role admin setup.
+
 ## Verification
 
 Commands:
 
-- `bun test src/data/catalog.test.ts src/lib/submissions.test.ts`
+- `bun test src/data/catalog.test.ts src/lib/submissions.test.ts supabase/migrations.test.ts`
 - `bun run type-check`
 - `bun run build`
 
@@ -88,4 +91,4 @@ Browser evidence:
 
 ## Remaining Risk
 
-- Remote Supabase policy correctness still depends on deployed table/storage policies, not only frontend code. The frontend now routes admin/user image writes through the intended paths, but production policy drift must be verified against the deployed Supabase project before changing policies.
+- Deployed Supabase projects must apply `supabase/migrations/0003_profile_admin_guard.sql`. The repository schema now contains the guard, but an already-deployed database remains at risk until the migration is pushed.
