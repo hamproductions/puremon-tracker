@@ -3,7 +3,7 @@ import { Box, Grid, HStack, Stack } from 'styled-system/jsx';
 import { Text } from '~/components/ui/text';
 import type { Catalog, Member, OwnershipMap } from '~/types';
 import { collectionStats, memberMap, overallStats } from '~/utils/stats';
-import { bromideId } from '~/data/catalog';
+import { bromideId, collectionSizes } from '~/data/catalog';
 
 interface MemberRowStat {
   member: Member;
@@ -20,8 +20,10 @@ function memberRowStats(catalog: Catalog, ownership: OwnershipMap): MemberRowSta
       for (const c of catalog.collections) {
         if (c.kind !== 'member_grid' || !c.memberIds.includes(member.id)) continue;
         for (const no of c.numbers) {
-          total += 1;
-          if ((ownership[bromideId(c.id, member.id, no)] ?? 0) >= 1) owned += 1;
+          for (const sz of collectionSizes(c)) {
+            total += 1;
+            if ((ownership[bromideId(c.id, member.id, no, sz)] ?? 0) >= 1) owned += 1;
+          }
         }
       }
       return { member: mm.get(member.id) ?? member, owned, total };
@@ -275,7 +277,7 @@ ExportPoster.displayName = 'ExportPoster';
 function PosterStat({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
     <Stack gap="0.5" alignItems="flex-end">
-      <Text style={{ color: '#e7c9da' }} fontSize="2xs">
+      <Text style={{ color: '#e7c9da' }} fontSize="xs">
         {label}
       </Text>
       <Text

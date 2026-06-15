@@ -137,11 +137,20 @@ export function PreviewCard({
           <FaRegCopy />
           コピー
         </Button>
-        <Button asChild variant="outline" disabled={!hasContent} flex={{ base: '1', sm: 'none' }}>
+        <Button
+          asChild
+          variant="outline"
+          disabled={!hasContent || over}
+          flex={{ base: '1', sm: 'none' }}
+        >
           <a
-            href={hasContent ? xShareUrl(text) : undefined}
+            href={hasContent && !over ? xShareUrl(text) : undefined}
             target="_blank"
             rel="noreferrer noopener"
+            aria-disabled={!hasContent || over}
+            onClick={(e) => {
+              if (!hasContent || over) e.preventDefault();
+            }}
           >
             <FaXTwitter />
             Xでツイート

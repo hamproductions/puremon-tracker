@@ -248,43 +248,41 @@ export default function Page() {
           </Box>
 
           <Grid gap="6" alignItems="start" columns={{ base: 1, lg: 2 }}>
-            <Stack gap="6">
-              <Panel>
-                <Stack gap="4">
-                  <SectionTitle
-                    step="1"
-                    title="譲・求を選ぶ"
-                    desc="出すダブりと集めたい不足を選択します。"
+            <Panel>
+              <Stack gap="4">
+                <SectionTitle
+                  step="1"
+                  title="譲・求を選ぶ"
+                  desc="出すダブりと集めたい不足を選択します。"
+                />
+                {mounted ? (
+                  <SelectionPanel
+                    catalog={catalog}
+                    ownership={ownership}
+                    collections={visibleCollections}
+                    gives={gives}
+                    wants={wants}
+                    onToggleGive={toggle(setGives)}
+                    onToggleWant={toggle(setWants)}
+                    onSetGives={setMany(setGives)}
+                    onSetWants={setMany(setWants)}
                   />
-                  {mounted ? (
-                    <SelectionPanel
-                      catalog={catalog}
-                      ownership={ownership}
-                      collections={visibleCollections}
-                      gives={gives}
-                      wants={wants}
-                      onToggleGive={toggle(setGives)}
-                      onToggleWant={toggle(setWants)}
-                      onSetGives={setMany(setGives)}
-                      onSetWants={setMany(setWants)}
-                    />
-                  ) : (
-                    <Text color="fg.muted" fontSize="sm">
-                      読み込み中…
-                    </Text>
-                  )}
-                </Stack>
-              </Panel>
+                ) : (
+                  <Text color="fg.muted" fontSize="sm">
+                    読み込み中…
+                  </Text>
+                )}
+              </Stack>
+            </Panel>
 
+            <Stack gap="6">
               <Panel>
                 <Stack gap="4">
                   <SectionTitle step="2" title="条件を入力" desc="この端末に自動で保存されます。" />
                   <ConditionsPanel value={conditions} onChange={(next) => setPrefs(next)} />
                 </Stack>
               </Panel>
-            </Stack>
 
-            <Stack position={{ lg: 'sticky' }} top={{ lg: '4' }} gap="6">
               <Panel>
                 <Stack gap="4">
                   <SectionTitle step="3" title="プレビュー＆投稿" />

@@ -271,7 +271,7 @@ function MemberGridTable({ grid, ownership, toggle, setCount, shouldShow }: Memb
             key={m.id}
             zIndex="1"
             position="sticky"
-            top="0"
+            top="14"
             gap="1.5"
             justifyContent="center"
             alignItems="center"
@@ -280,6 +280,7 @@ function MemberGridTable({ grid, ownership, toggle, setCount, shouldShow }: Memb
             py="2.5"
             px="1.5"
             bgColor="board.panelSolid"
+            boxShadow="0 1px 0 var(--colors-board-border)"
           >
             <Box
               style={{ backgroundColor: m.color }}

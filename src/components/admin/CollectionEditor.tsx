@@ -3,6 +3,7 @@ import { FaCheck, FaPenToSquare, FaPlus, FaTrash, FaXmark } from 'react-icons/fa
 import { Box, Grid, HStack, Stack, Wrap } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
+import { Dialog } from '~/components/ui/dialog';
 import { Heading } from '~/components/ui/heading';
 import { Input } from '~/components/ui/input';
 import { NumberInput } from '~/components/ui/number-input';
@@ -81,6 +82,7 @@ function emptyForm(members: Member[]): FormState {
 export function CollectionEditor({ catalog }: { catalog: Catalog }) {
   const { toast } = useToaster();
   const [editing, setEditing] = useState<Collection | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Collection | null>(null);
   const [form, setForm] = useState<FormState>(() => emptyForm(catalog.members));
 
   useEffect(() => {
@@ -180,6 +182,11 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
     catalogActions.deleteCollection(c.id);
     if (editing?.id === c.id) setEditing(null);
     toast({ title: '削除しました', type: 'success' });
+  };
+
+  const confirmDelete = () => {
+    if (pendingDelete) remove(pendingDelete);
+    setPendingDelete(null);
   };
 
   return (
@@ -516,7 +523,12 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
                     編集
                   </Button>
                   {canDelete ? (
-                    <Button size="sm" variant="ghost" onClick={() => remove(c)} colorPalette="red">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setPendingDelete(c)}
+                      colorPalette="red"
+                    >
                       <FaTrash />
                       削除
                     </Button>
@@ -527,6 +539,42 @@ export function CollectionEditor({ catalog }: { catalog: Catalog }) {
           })}
         </Stack>
       </Stack>
+
+      <Dialog.Root
+        open={pendingDelete !== null}
+        onOpenChange={(e) => {
+          if (!e.open) setPendingDelete(null);
+        }}
+        lazyMount
+        unmountOnExit
+      >
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content maxW="sm" p="6">
+            <Stack gap="4">
+              <Stack gap="1">
+                <Dialog.Title asChild>
+                  <Heading fontSize="lg">コレクションを削除しますか？</Heading>
+                </Dialog.Title>
+                <Dialog.Description asChild>
+                  <Text color="fg.muted" fontSize="sm">
+                    「{pendingDelete?.title}」を削除します。この操作は取り消せません。
+                  </Text>
+                </Dialog.Description>
+              </Stack>
+              <HStack gap="2" justifyContent="flex-end">
+                <Dialog.CloseTrigger asChild>
+                  <Button variant="outline">キャンセル</Button>
+                </Dialog.CloseTrigger>
+                <Button onClick={confirmDelete} colorPalette="red">
+                  <FaTrash />
+                  削除する
+                </Button>
+              </HStack>
+            </Stack>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Dialog.Root>
     </Grid>
   );
 }

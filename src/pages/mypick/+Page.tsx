@@ -48,6 +48,30 @@ export default function Page() {
     [catalog.collections, collectionId]
   );
 
+  const filtered = useMemo(() => {
+    const ids = new Set(visibleCollections.map((c) => c.id));
+    let owned = 0;
+    let total = 0;
+    let duplicates = 0;
+    for (const b of catalog.bromides) {
+      if (!ids.has(b.collectionId)) continue;
+      if (memberFilter.size > 0 && (!b.memberId || !memberFilter.has(b.memberId))) continue;
+      total += 1;
+      const cnt = ownership[b.id] ?? 0;
+      if (cnt >= 1) owned += 1;
+      if (cnt >= 2) duplicates += cnt - 1;
+    }
+    return {
+      owned,
+      total,
+      missing: total - owned,
+      duplicates,
+      percent: total ? Math.round((owned / total) * 100) : 0
+    };
+  }, [catalog.bromides, visibleCollections, memberFilter, ownership]);
+
+  const isFiltered = collectionId !== 'all' || memberFilter.size > 0;
+
   const toggleMember = (id: string) =>
     setMemberFilter((prev) => {
       const next = new Set(prev);
@@ -115,7 +139,7 @@ export default function Page() {
             <Grid gap="4" alignItems="center" columns={{ base: 1, md: 3 }}>
               <Stack gap="0.5" gridColumn={{ md: 'span 1' }}>
                 <Text color="fg.muted" fontSize="sm">
-                  所持枚数
+                  {isFiltered ? '所持枚数（絞り込み）' : '所持枚数'}
                 </Text>
                 <HStack gap="1.5" alignItems="baseline">
                   <Text
@@ -124,10 +148,10 @@ export default function Page() {
                     fontVariantNumeric="tabular-nums"
                     lineHeight="1"
                   >
-                    {mounted ? overall.owned : 0}
+                    {mounted ? filtered.owned : 0}
                   </Text>
                   <Text color="fg.muted" fontSize="lg" fontVariantNumeric="tabular-nums">
-                    / {overall.total} 枚
+                    / {filtered.total} 枚
                   </Text>
                 </HStack>
               </Stack>
@@ -145,20 +169,20 @@ export default function Page() {
                       fontVariantNumeric="tabular-nums"
                       lineHeight="1"
                     >
-                      {mounted ? overall.percent : 0}
+                      {mounted ? filtered.percent : 0}
                     </Text>
                     <Text color="accent.default" fontSize="sm" fontWeight="bold">
                       %
                     </Text>
                   </HStack>
                 </HStack>
-                <ProgressBar percent={mounted ? overall.percent : 0} />
+                <ProgressBar percent={mounted ? filtered.percent : 0} />
                 <HStack gap="2" pt="0.5" flexWrap="wrap">
                   <Badge size="md" variant="subtle" colorPalette="gray">
-                    不足 {mounted ? overall.missing : overall.total}
+                    不足 {mounted ? filtered.missing : filtered.total}
                   </Badge>
                   <Badge size="md" variant="subtle" colorPalette="amber">
-                    ダブり {mounted ? overall.duplicates : 0}
+                    ダブり {mounted ? filtered.duplicates : 0}
                   </Badge>
                 </HStack>
               </Stack>
@@ -200,6 +224,7 @@ export default function Page() {
             value={view}
             onValueChange={(e) => setView(e.value as ViewKey)}
             size="sm"
+            orientation="horizontal"
           >
             <SegmentGroup.Indicator />
             {VIEW_ITEMS.map((item) => (
@@ -236,29 +261,31 @@ export default function Page() {
             />
           )}
 
-          <HStack
-            gap="3"
-            justifyContent="space-between"
-            borderColor="board.border"
-            borderRadius="2xl"
-            borderWidth="1px"
-            p={{ base: '4', md: '5' }}
-            bgColor="board.panel"
-            flexWrap="wrap"
-          >
-            <Stack gap="0.5">
-              <Heading fontSize="md">ダブりを交換しよう</Heading>
-              <Text color="fg.muted" fontSize="sm">
-                余ったブロマイドは譲渡テキストにして交換相手を探せます。
-              </Text>
-            </Stack>
-            <Link href={toAppUrl('/trade')} _hover={{ textDecoration: 'none' }}>
-              <Button variant="outline">
-                <FaArrowRightArrowLeft />
-                ダブりを交換する →
-              </Button>
-            </Link>
-          </HStack>
+          {mounted && overall.duplicates > 0 ? (
+            <HStack
+              gap="3"
+              justifyContent="space-between"
+              borderColor="board.border"
+              borderRadius="2xl"
+              borderWidth="1px"
+              p={{ base: '4', md: '5' }}
+              bgColor="board.panel"
+              flexWrap="wrap"
+            >
+              <Stack gap="0.5">
+                <Heading fontSize="md">ダブり {overall.duplicates} 枚を交換しよう</Heading>
+                <Text color="fg.muted" fontSize="sm">
+                  余ったブロマイドは譲渡テキストにして交換相手を探せます。
+                </Text>
+              </Stack>
+              <Link href={toAppUrl('/trade')} _hover={{ textDecoration: 'none' }}>
+                <Button variant="outline">
+                  <FaArrowRightArrowLeft />
+                  ダブりを交換する →
+                </Button>
+              </Link>
+            </HStack>
+          ) : null}
         </>
       )}
 

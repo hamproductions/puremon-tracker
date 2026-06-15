@@ -27,9 +27,18 @@ export function gradientFromColors(colors: string[]): string {
 }
 
 export function kindLabel(kind: Collection['kind']): string {
-  return kind === 'member_grid' ? 'メンバー別' : '集合';
+  if (kind === 'member_grid') return 'メンバー別';
+  if (kind === 'mixed') return '個別';
+  return '集合';
 }
 
 export function memberCountLabel(collection: Collection): string {
-  return collection.kind === 'flat' ? '集合' : `${collection.memberIds.length}人`;
+  if (collection.kind === 'flat') return '集合写真';
+  if (collection.kind === 'mixed') {
+    const ids = new Set(
+      (collection.items ?? []).map((it) => it.memberId).filter((id): id is string => Boolean(id))
+    );
+    return ids.size > 0 ? `${ids.size}人（個別）` : '個別';
+  }
+  return `${collection.memberIds.length}人`;
 }

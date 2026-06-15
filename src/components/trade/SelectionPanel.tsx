@@ -132,19 +132,24 @@ function SideSection({
                     {groupOn ? '解除' : '選択'}
                   </Box>
                 </HStack>
-                <Grid gap="1.5" columns={{ base: 2, sm: 3 }}>
-                  {items.map(({ bromide, count }) => (
-                    <SelectableChip
-                      key={bromide.id}
-                      label={memberShort(catalog, bromide)}
-                      sub={
-                        side === 'give' ? `No.${bromide.no} ・ ×${count - 1}` : `No.${bromide.no}`
-                      }
-                      selected={selected.has(bromide.id)}
-                      onClick={() => onToggle(bromide.id)}
-                      color={memberColor(catalog, bromide.memberId)}
-                    />
-                  ))}
+                <Grid gap="1.5" columns={{ base: 1, sm: 2 }}>
+                  {items.map(({ bromide, count }) => {
+                    const sizePart = bromide.size ? `${bromide.size}・` : '';
+                    return (
+                      <SelectableChip
+                        key={bromide.id}
+                        label={memberShort(catalog, bromide)}
+                        sub={
+                          side === 'give'
+                            ? `${sizePart}No.${bromide.no} ・ ×${count - 1}`
+                            : `${sizePart}No.${bromide.no}`
+                        }
+                        selected={selected.has(bromide.id)}
+                        onClick={() => onToggle(bromide.id)}
+                        color={memberColor(catalog, bromide.memberId)}
+                      />
+                    );
+                  })}
                 </Grid>
               </Stack>
             );
@@ -157,7 +162,8 @@ function SideSection({
 
 function memberShort(catalog: Catalog, b: Bromide): string {
   if (!b.memberId) return '集合';
-  return catalog.members.find((m) => m.id === b.memberId)?.name ?? `No.${b.no}`;
+  const m = catalog.members.find((x) => x.id === b.memberId);
+  return m?.nickname ?? m?.name ?? `No.${b.no}`;
 }
 
 interface SelectionPanelProps {
