@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FaArrowLeft, FaCheck, FaPenToSquare, FaTableCells, FaUsers } from 'react-icons/fa6';
-import { Box, Grid, HStack, Stack, styled } from 'styled-system/jsx';
+import {
+  FaArrowLeft,
+  FaCheck,
+  FaPenToSquare,
+  FaPlus,
+  FaTableCells,
+  FaUsers
+} from 'react-icons/fa6';
+import { Box, Grid, HStack, Stack, Wrap, styled } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
+import { Dialog } from '~/components/ui/dialog';
 import { Heading } from '~/components/ui/heading';
 import { Link } from '~/components/ui/link';
 import { Switch } from '~/components/ui/switch';
@@ -70,6 +78,47 @@ export function CollectionDetail({
   };
 
   const adminEdit = isAdmin && editMode;
+  const isMixed = collection.kind === 'mixed';
+  const [editTarget, setEditTarget] = useState<{ mode: 'retag' | 'add'; bromide?: Bromide } | null>(
+    null
+  );
+  const [addNo, setAddNo] = useState(1);
+
+  const updateItems = (items: { memberId: string | null; no: number }[]) => {
+    void catalogActions.upsertCollection({ ...collection, items });
+  };
+  const retagItem = (target: Bromide, memberId: string | null) => {
+    if (memberId === target.memberId) return;
+    const clash = (collection.items ?? []).some(
+      (it) => it.memberId === memberId && it.no === target.no
+    );
+    if (clash) {
+      toast({ title: 'そのメンバーのNo.はすでにあります', type: 'error' });
+      return;
+    }
+    updateItems(
+      (collection.items ?? []).map((it) =>
+        it.memberId === target.memberId && it.no === target.no ? { memberId, no: it.no } : it
+      )
+    );
+    toast({ title: 'メンバーを変更しました', type: 'success' });
+  };
+  const removeItem = (target: Bromide) => {
+    updateItems(
+      (collection.items ?? []).filter(
+        (it) => !(it.memberId === target.memberId && it.no === target.no)
+      )
+    );
+    toast({ title: 'カードを削除しました', type: 'success' });
+  };
+  const addItem = (memberId: string | null, no: number) => {
+    if ((collection.items ?? []).some((it) => it.memberId === memberId && it.no === no)) {
+      toast({ title: 'すでに追加済みです', type: 'error' });
+      return;
+    }
+    updateItems([...(collection.items ?? []), { memberId, no }]);
+    toast({ title: 'カードを追加しました', type: 'success' });
+  };
 
   useEffect(() => {
     if (byMemberAuto) return;
@@ -128,14 +177,14 @@ export function CollectionDetail({
                 </Badge>
               ) : null}
             </HStack>
-            {isAdmin ? (
+            {isAdmin && isMixed ? (
               <Button
                 size="xs"
                 variant={editMode ? 'solid' : 'outline'}
                 onClick={() => setEditMode((v) => !v)}
               >
                 {editMode ? <FaCheck /> : <FaPenToSquare />}
-                {editMode ? '編集を終了' : '画像を編集'}
+                {editMode ? '編集を終了' : 'カードを編集'}
               </Button>
             ) : null}
           </HStack>
@@ -150,9 +199,9 @@ export function CollectionDetail({
             }}
             display="none"
           />
-          {adminEdit ? (
+          {adminEdit && isMixed ? (
             <Text color="accent.text" fontSize="xs">
-              画像のないカードに「画像」ボタンが表示されます。タップして登録できます。
+              カードをタップしてメンバーを変更、× で削除、末尾の「＋」で追加できます。
             </Text>
           ) : null}
           <Heading textStyle="display" fontSize={{ base: '2xl', md: '3xl' }} lineHeight="1.15">
@@ -290,8 +339,105 @@ export function CollectionDetail({
           shouldShow={shouldShow}
           adminEdit={adminEdit}
           requestImage={requestImage}
+          onEditItem={
+            adminEdit && isMixed ? (b) => setEditTarget({ mode: 'retag', bromide: b }) : undefined
+          }
+          onRemoveItem={adminEdit && isMixed ? removeItem : undefined}
+          onAddCard={
+            adminEdit && isMixed
+              ? () => {
+                  setAddNo(1);
+                  setEditTarget({ mode: 'add' });
+                }
+              : undefined
+          }
         />
       )}
+
+      <Dialog.Root
+        open={editTarget !== null}
+        onOpenChange={(e) => {
+          if (!e.open) setEditTarget(null);
+        }}
+        lazyMount
+        unmountOnExit
+      >
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content maxW="sm" p="5">
+            <Stack gap="4">
+              <Dialog.Title asChild>
+                <Heading fontSize="lg">
+                  {editTarget?.mode === 'add' ? 'カードを追加' : 'メンバーを変更'}
+                </Heading>
+              </Dialog.Title>
+              {editTarget?.mode === 'add' ? (
+                <HStack gap="2" alignItems="center">
+                  <Text fontSize="sm" fontWeight="bold">
+                    No.
+                  </Text>
+                  <styled.input
+                    type="number"
+                    min={1}
+                    value={addNo}
+                    onChange={(e) => setAddNo(Math.max(1, Math.round(Number(e.target.value) || 1)))}
+                    borderColor="border.default"
+                    borderRadius="l2"
+                    borderWidth="1px"
+                    w="20"
+                    py="1.5"
+                    px="2.5"
+                    fontSize="sm"
+                  />
+                </HStack>
+              ) : null}
+              <Text color="fg.muted" fontSize="xs">
+                メンバーを選択してください
+              </Text>
+              <Wrap gap="1.5">
+                {[...catalog.members, null].map((m) => {
+                  const memberId = m?.id ?? null;
+                  const color = m?.color ?? '#FF5FA2';
+                  return (
+                    <styled.button
+                      key={memberId ?? '__group__'}
+                      type="button"
+                      onClick={() => {
+                        if (editTarget?.mode === 'add') addItem(memberId, addNo);
+                        else if (editTarget?.bromide) retagItem(editTarget.bromide, memberId);
+                        setEditTarget(null);
+                      }}
+                      cursor="pointer"
+                      display="inline-flex"
+                      gap="1.5"
+                      alignItems="center"
+                      borderColor="board.border"
+                      borderRadius="full"
+                      borderWidth="1px"
+                      py="1.5"
+                      px="3"
+                      fontSize="sm"
+                      fontWeight="medium"
+                      bgColor="board.panel"
+                      _hover={{ borderColor: 'accent.default', bgColor: 'bg.muted' }}
+                    >
+                      <Box style={{ backgroundColor: color }} borderRadius="full" w="2.5" h="2.5" />
+                      {m ? m.name : '集合'}
+                    </styled.button>
+                  );
+                })}
+              </Wrap>
+              <HStack justifyContent="flex-end">
+                <Dialog.CloseTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    閉じる
+                  </Button>
+                </Dialog.CloseTrigger>
+              </HStack>
+            </Stack>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Dialog.Root>
     </Stack>
   );
 }
@@ -518,6 +664,9 @@ function MemberSections({
 interface FlatGridProps extends GridViewProps {
   catalog: Catalog;
   bromides: Bromide[];
+  onEditItem?: (b: Bromide) => void;
+  onRemoveItem?: (b: Bromide) => void;
+  onAddCard?: () => void;
 }
 
 function FlatGridView({
@@ -528,11 +677,14 @@ function FlatGridView({
   setCount,
   shouldShow,
   adminEdit,
-  requestImage
+  requestImage,
+  onEditItem,
+  onRemoveItem,
+  onAddCard
 }: FlatGridProps) {
-  const visible = bromides.filter((b) => shouldShow(b.id));
+  const visible = adminEdit ? bromides : bromides.filter((b) => shouldShow(b.id));
   const mm = memberMap(catalog);
-  if (visible.length === 0) {
+  if (visible.length === 0 && !onAddCard) {
     return <EmptyState missingOnly={bromides.length > 0} />;
   }
   return (
@@ -552,10 +704,38 @@ function FlatGridView({
               showStepper
               adminEdit={adminEdit}
               onAddImage={requestImage ? () => requestImage(b.id) : undefined}
+              onEditMember={onEditItem ? () => onEditItem(b) : undefined}
+              onRemoveCard={onRemoveItem ? () => onRemoveItem(b) : undefined}
             />
           </Stack>
         );
       })}
+      {onAddCard ? (
+        <styled.button
+          type="button"
+          onClick={onAddCard}
+          aria-label="カードを追加"
+          cursor="pointer"
+          display="flex"
+          gap="1"
+          flexDirection="column"
+          justifyContent="center"
+          alignItems="center"
+          aspectRatio="3 / 4"
+          borderColor="board.border"
+          borderRadius="lg"
+          borderWidth="2px"
+          color="fg.muted"
+          bgColor="board.missing"
+          borderStyle="dashed"
+          _hover={{ borderColor: 'accent.default', color: 'accent.text' }}
+        >
+          <FaPlus size={18} />
+          <styled.span fontSize="2xs" fontWeight="bold">
+            カード追加
+          </styled.span>
+        </styled.button>
+      ) : null}
     </Grid>
   );
 }

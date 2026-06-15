@@ -1,4 +1,4 @@
-import { FaCamera, FaCheck, FaMinus, FaPlus } from 'react-icons/fa6';
+import { FaCamera, FaCheck, FaMinus, FaPlus, FaXmark } from 'react-icons/fa6';
 import { Box, Center, HStack, Stack, styled } from 'styled-system/jsx';
 import { Text } from '~/components/ui/text';
 import type { Bromide, Member } from '~/types';
@@ -15,6 +15,8 @@ interface BromideTileProps {
   size?: 'sm' | 'md';
   adminEdit?: boolean;
   onAddImage?: () => void;
+  onEditMember?: () => void;
+  onRemoveCard?: () => void;
 }
 
 const Img = styled('img');
@@ -30,7 +32,9 @@ export function BromideTile({
   showStepper = true,
   size = 'md',
   adminEdit = false,
-  onAddImage
+  onAddImage,
+  onEditMember,
+  onRemoveCard
 }: BromideTileProps) {
   const owned = count >= 1;
   const isDup = count >= 2;
@@ -40,40 +44,46 @@ export function BromideTile({
   const name = `${who ? `${who} ` : ''}${bromide.size ? `${bromide.size} ` : ''}No.${bromide.no}`;
   const sm = size === 'sm';
   const interactive = Boolean(onToggle);
-  const stepper = owned && showStepper && Boolean(onSetCount);
+  const editClickable = adminEdit && Boolean(onEditMember);
+  const ownClickable = !adminEdit && interactive && !owned;
+  const clickable = editClickable || ownClickable;
+  const handleClick = editClickable ? onEditMember : ownClickable ? onToggle : undefined;
+  const stepper = !adminEdit && owned && showStepper && Boolean(onSetCount);
   const hasImg = Boolean(bromide.imageUrl);
 
   return (
     <Stack gap="1" w="full" minW="0">
       <Box
-        role={interactive && !owned ? 'button' : undefined}
-        tabIndex={interactive && !owned ? 0 : undefined}
-        aria-label={`${name}${owned ? `・所持${count}枚` : '・未所持'}`}
-        onClick={interactive && !owned ? onToggle : undefined}
+        role={clickable ? 'button' : undefined}
+        tabIndex={clickable ? 0 : undefined}
+        aria-label={
+          editClickable
+            ? `${name}・メンバーを変更`
+            : `${name}${owned ? `・所持${count}枚` : '・未所持'}`
+        }
+        onClick={handleClick}
         onKeyDown={(e) => {
-          if (!interactive || owned) return;
+          if (!clickable) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            onToggle?.();
+            handleClick?.();
           }
         }}
         style={{
           backgroundColor: owned && !hasImg ? color : undefined,
-          borderColor: owned ? color : undefined
+          borderColor: owned || editClickable ? color : undefined
         }}
-        cursor={interactive && !owned ? 'pointer' : 'default'}
+        cursor={clickable ? 'pointer' : 'default'}
         position="relative"
         aspectRatio="3 / 4"
         borderColor={owned ? undefined : 'board.border'}
         borderRadius={sm ? 'md' : 'lg'}
-        borderWidth="1px"
+        borderWidth={editClickable ? '2px' : '1px'}
         w="full"
         bgColor={owned ? undefined : 'board.missing'}
         overflow="hidden"
         transition="background-color 0.12s, border-color 0.12s"
-        _hover={
-          interactive && !owned ? { borderColor: 'accent.default', bgColor: 'bg.muted' } : undefined
-        }
+        _hover={clickable ? { borderColor: 'accent.default', bgColor: 'bg.muted' } : undefined}
       >
         {hasImg ? (
           <Img
@@ -184,7 +194,7 @@ export function BromideTile({
           </HStack>
         ) : null}
 
-        {adminEdit && !hasImg && onAddImage ? (
+        {!hasImg && onAddImage ? (
           <styled.button
             type="button"
             aria-label="画像を追加"
@@ -196,8 +206,8 @@ export function BromideTile({
             cursor="pointer"
             display="flex"
             position="absolute"
-            top="1"
             left="1"
+            bottom={stepper ? (sm ? '5' : '7') : '1'}
             gap="1"
             alignItems="center"
             borderRadius="md"
@@ -206,11 +216,38 @@ export function BromideTile({
             color="white"
             fontSize="2xs"
             fontWeight="bold"
-            bgColor="rgba(0,0,0,0.55)"
-            _hover={{ bgColor: 'rgba(0,0,0,0.75)' }}
+            bgColor="rgba(0,0,0,0.45)"
+            opacity={0.85}
+            _hover={{ bgColor: 'rgba(0,0,0,0.75)', opacity: 1 }}
           >
             <FaCamera size={9} />
             {sm ? null : '画像'}
+          </styled.button>
+        ) : null}
+
+        {adminEdit && onRemoveCard ? (
+          <styled.button
+            type="button"
+            aria-label="カードを削除"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemoveCard();
+            }}
+            cursor="pointer"
+            display="flex"
+            position="absolute"
+            top="1"
+            right="1"
+            justifyContent="center"
+            alignItems="center"
+            borderRadius="full"
+            w="5"
+            h="5"
+            color="white"
+            bgColor="red.9"
+            _hover={{ bgColor: 'red.10' }}
+          >
+            <FaXmark size={11} />
           </styled.button>
         ) : null}
       </Box>
