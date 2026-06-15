@@ -21,7 +21,6 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { path: '/', label: 'ホーム', exact: true },
   { path: '/collections', label: 'コレクション' },
-  { path: '/trade', label: '譲渡' },
   { path: '/admin', label: '管理', admin: true }
 ];
 

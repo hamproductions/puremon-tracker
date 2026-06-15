@@ -169,7 +169,7 @@ function SideSection({
 function memberShort(catalog: Catalog, b: Bromide): string {
   if (!b.memberId) return '集合';
   const m = catalog.members.find((x) => x.id === b.memberId);
-  return m?.nickname ?? m?.name ?? `No.${b.no}`;
+  return m?.name ?? `No.${b.no}`;
 }
 
 interface SelectionPanelProps {

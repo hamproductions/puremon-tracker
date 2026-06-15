@@ -11,6 +11,7 @@ import {
   bromideImagesStore,
   customCollectionsStore,
   customMembersStore,
+  deletedCollectionsStore,
   remoteCatalogStore,
   useStore
 } from '~/data/store';
@@ -29,12 +30,14 @@ export function buildMergedCatalog(
   baseImages: Record<string, string>,
   customCollections: Collection[],
   customMembers: Member[],
-  localImages: Record<string, string>
+  localImages: Record<string, string>,
+  deletedCollectionIds: string[] = []
 ): Catalog {
   const members = mergeById(baseMembers, customMembers).sort((a, b) => a.order - b.order);
-  const collections = mergeById(baseCollections, customCollections).sort((a, b) =>
-    (b.releaseDate ?? '').localeCompare(a.releaseDate ?? '')
-  );
+  const deleted = new Set(deletedCollectionIds);
+  const collections = mergeById(baseCollections, customCollections)
+    .filter((c) => !deleted.has(c.id))
+    .sort((a, b) => (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''));
   const images = { ...baseImages, ...localImages };
   const bromides = collections
     .flatMap(buildBromides)
@@ -54,6 +57,7 @@ export function useCatalog(): Catalog {
   const customCollections = useStore(customCollectionsStore);
   const customMembers = useStore(customMembersStore);
   const localImages = useStore(bromideImagesStore);
+  const deletedCollections = useStore(deletedCollectionsStore);
 
   useEffect(() => {
     if (!isSupabaseConfigured || fetchedOnce) return;
@@ -75,13 +79,15 @@ export function useCatalog(): Catalog {
       baseImages,
       customCollections,
       customMembers,
-      localImages
+      localImages,
+      deletedCollections
     );
-  }, [remote, customCollections, customMembers, localImages]);
+  }, [remote, customCollections, customMembers, localImages, deletedCollections]);
 }
 
 export const catalogActions = {
   async upsertCollection(collection: Collection) {
+    deletedCollectionsStore.update((list) => list.filter((d) => d !== collection.id));
     customCollectionsStore.update((list) => [
       ...list.filter((c) => c.id !== collection.id),
       collection
@@ -97,6 +103,7 @@ export const catalogActions = {
   },
   async deleteCollection(id: string) {
     customCollectionsStore.update((list) => list.filter((c) => c.id !== id));
+    deletedCollectionsStore.update((list) => (list.includes(id) ? list : [...list, id]));
     if (!isSupabaseConfigured) return;
     try {
       await deleteCollectionRemote(id);

@@ -32,7 +32,7 @@ export function BromideTile({
   const isDup = count >= 2;
   const color = member?.color ?? '#2196f3';
   const ink = readableText(color);
-  const who = member ? member.nickname : bromide.memberId ? '' : '集合';
+  const who = member ? member.name : bromide.memberId ? '' : '集合';
   const name = `${who ? `${who} ` : ''}${bromide.size ? `${bromide.size} ` : ''}No.${bromide.no}`;
   const sm = size === 'sm';
   const interactive = Boolean(onToggle);

@@ -83,6 +83,10 @@ export function useStore<T>(store: PersistedStore<T>): T {
 }
 
 export const customCollectionsStore = createPersistedStore<Collection[]>('puremon:collections', []);
+export const deletedCollectionsStore = createPersistedStore<string[]>(
+  'puremon:deleted-collections',
+  []
+);
 export const customMembersStore = createPersistedStore<Member[]>('puremon:members', []);
 export const bromideImagesStore = createPersistedStore<Record<string, string>>(
   'puremon:images',

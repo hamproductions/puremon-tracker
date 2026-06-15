@@ -223,7 +223,7 @@ export const ExportPoster = forwardRef<HTMLDivElement, ExportPosterProps>(
                             fontWeight="bold"
                             truncate
                           >
-                            {member.nickname}
+                            {member.name}
                           </Text>
                           <Text
                             style={{ color: '#e7c9da' }}

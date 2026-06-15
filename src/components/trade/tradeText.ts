@@ -64,7 +64,7 @@ function methodLabelCompact(method: TradeMethod, mailNote: string): string {
 function shortName(catalog: Catalog, b: Bromide): string {
   if (!b.memberId) return '集合';
   const m = memberMap(catalog).get(b.memberId);
-  return m?.nickname ?? m?.name ?? b.memberId;
+  return m?.name ?? b.memberId;
 }
 
 function setTitle(catalog: Catalog, b: Bromide): string {

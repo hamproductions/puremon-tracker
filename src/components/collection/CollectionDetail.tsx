@@ -4,7 +4,6 @@ import { Box, Grid, HStack, Stack, styled } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
 import { Heading } from '~/components/ui/heading';
 import { Link } from '~/components/ui/link';
-import { SegmentGroup } from '~/components/ui/segment-group';
 import { Switch } from '~/components/ui/switch';
 import { Text } from '~/components/ui/text';
 import { BromideTile } from '~/components/bromide/BromideTile';
@@ -143,21 +142,32 @@ export function CollectionDetail({
             <Text fontSize="sm" fontWeight="bold">
               サイズ
             </Text>
-            <SegmentGroup.Root
-              value={grid.size ?? ''}
-              onValueChange={(e) => setSize(e.value)}
-              size="md"
-              orientation="horizontal"
-            >
-              <SegmentGroup.Indicator />
-              {grid.sizes.map((s) => (
-                <SegmentGroup.Item key={s} value={s}>
-                  <SegmentGroup.ItemText>{s}</SegmentGroup.ItemText>
-                  <SegmentGroup.ItemControl />
-                  <SegmentGroup.ItemHiddenInput />
-                </SegmentGroup.Item>
-              ))}
-            </SegmentGroup.Root>
+            <HStack gap="1" borderRadius="lg" p="1" bgColor="bg.muted">
+              {grid.sizes.map((s) => {
+                const active = grid.size === s;
+                return (
+                  <styled.button
+                    key={s}
+                    type="button"
+                    onClick={() => setSize(s)}
+                    aria-pressed={active}
+                    cursor="pointer"
+                    borderRadius="md"
+                    minW="12"
+                    py="1.5"
+                    px="4"
+                    color={active ? 'accent.fg' : 'fg.muted'}
+                    fontSize="sm"
+                    fontWeight="bold"
+                    bgColor={active ? 'accent.default' : 'transparent'}
+                    transition="background-color 0.12s, color 0.12s"
+                    _hover={active ? undefined : { bgColor: 'bg.emphasized', color: 'fg.default' }}
+                  >
+                    {s}
+                  </styled.button>
+                );
+              })}
+            </HStack>
             {mounted ? (
               <Text color="fg.muted" fontSize="xs" fontVariantNumeric="tabular-nums">
                 {grid.size}サイズ {sizeStats.owned}/{sizeStats.total}・{sizeStats.percent}%
@@ -289,7 +299,7 @@ function MemberGridTable({ grid, ownership, toggle, setCount, shouldShow }: Memb
               h="2.5"
             />
             <Text fontSize="xs" fontWeight="bold" truncate>
-              {m.nickname}
+              {m.name}
             </Text>
           </HStack>
         ))}
@@ -391,10 +401,7 @@ function MemberSections({ grid, ownership, toggle, setCount, shouldShow }: Membe
           >
             <HStack gap="2" alignItems="center">
               <Box style={{ backgroundColor: m.color }} borderRadius="full" w="3" h="3" />
-              <Text fontWeight="bold">{m.nickname}</Text>
-              <Text color="fg.subtle" fontSize="xs">
-                {m.name}
-              </Text>
+              <Text fontWeight="bold">{m.name}</Text>
             </HStack>
             <Grid gap="3" gridTemplateColumns="repeat(auto-fill, minmax(80px, 1fr))">
               {cells.map((b) => (
@@ -449,7 +456,7 @@ function FlatGridView({
               count={ownership[b.id] ?? 0}
               onToggle={() => toggle(b.id)}
               onSetCount={(n) => setCount(b.id, n)}
-              label={member ? `${member.nickname} No.${b.no}` : `集合 No.${b.no}`}
+              label={member ? `${member.name} No.${b.no}` : `集合 No.${b.no}`}
               size="md"
               showStepper
             />
