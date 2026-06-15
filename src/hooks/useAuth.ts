@@ -57,7 +57,7 @@ export function useAuth() {
     const sb = getSupabase();
     if (!sb) return;
     await sb.auth.signInWithOAuth({
-      provider: 'twitter',
+      provider: 'x',
       options: { redirectTo: window.location.origin + toAppUrl('/') }
     });
   };
