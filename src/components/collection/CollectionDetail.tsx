@@ -1,13 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FaArrowLeft, FaTableCells, FaUsers } from 'react-icons/fa6';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FaArrowLeft, FaCheck, FaPenToSquare, FaTableCells, FaUsers } from 'react-icons/fa6';
 import { Box, Grid, HStack, Stack, styled } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
 import { Heading } from '~/components/ui/heading';
 import { Link } from '~/components/ui/link';
 import { Switch } from '~/components/ui/switch';
 import { Text } from '~/components/ui/text';
 import { BromideTile } from '~/components/bromide/BromideTile';
 import { ProgressBar, StatPills } from '~/components/bromide/Progress';
+import { useToaster } from '~/context/ToasterContext';
+import { useAuth } from '~/hooks/useAuth';
+import { catalogActions } from '~/hooks/useCatalog';
+import { uploadBromideImage } from '~/lib/storage';
 import type { Bromide, Catalog, Collection, Member } from '~/types';
 import { buildGrid, collectionStats, memberMap } from '~/utils/stats';
 import { toAppUrl } from '~/utils/url';
@@ -32,11 +37,39 @@ export function CollectionDetail({
   toggle,
   setCount
 }: CollectionDetailProps) {
+  const { isAdmin } = useAuth();
+  const { toast } = useToaster();
   const [missingOnly, setMissingOnly] = useState(false);
   const [byMember, setByMember] = useState(false);
   const [byMemberAuto, setByMemberAuto] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [size, setSize] = useState<string | undefined>(undefined);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const targetRef = useRef<string | null>(null);
   const grid = useMemo(() => buildGrid(catalog, collection, size), [catalog, collection, size]);
+
+  const requestImage = (bromideId: string) => {
+    targetRef.current = bromideId;
+    fileRef.current?.click();
+  };
+
+  const onImageFile = async (file: File) => {
+    const bromideId = targetRef.current;
+    if (!bromideId) return;
+    try {
+      const { url, mode } = await uploadBromideImage(file, bromideId);
+      catalogActions.setBromideImage(bromideId, url);
+      toast({
+        title: '画像を登録しました',
+        description: mode === 'cloud' ? 'クラウドに保存しました' : 'この端末に保存しました',
+        type: 'success'
+      });
+    } catch {
+      toast({ title: '画像の登録に失敗しました', type: 'error' });
+    }
+  };
+
+  const adminEdit = isAdmin && editMode;
 
   useEffect(() => {
     if (byMemberAuto) return;
@@ -80,20 +113,48 @@ export function CollectionDetail({
         </Link>
 
         <Stack gap="2">
-          <HStack gap="2" alignItems="center" flexWrap="wrap">
-            <Badge
-              size="sm"
-              variant="subtle"
-              colorPalette={collection.kind === 'member_grid' ? 'pink' : 'gray'}
-            >
-              {kindLabel(collection.kind)}
-            </Badge>
-            {isComplete ? (
-              <Badge size="sm" variant="solid" colorPalette="green">
-                コンプ!
+          <HStack gap="2" justifyContent="space-between" alignItems="center" flexWrap="wrap">
+            <HStack gap="2" alignItems="center" flexWrap="wrap">
+              <Badge
+                size="sm"
+                variant="subtle"
+                colorPalette={collection.kind === 'member_grid' ? 'pink' : 'gray'}
+              >
+                {kindLabel(collection.kind)}
               </Badge>
+              {isComplete ? (
+                <Badge size="sm" variant="solid" colorPalette="green">
+                  コンプ!
+                </Badge>
+              ) : null}
+            </HStack>
+            {isAdmin ? (
+              <Button
+                size="xs"
+                variant={editMode ? 'solid' : 'outline'}
+                onClick={() => setEditMode((v) => !v)}
+              >
+                {editMode ? <FaCheck /> : <FaPenToSquare />}
+                {editMode ? '編集を終了' : '画像を編集'}
+              </Button>
             ) : null}
           </HStack>
+          <styled.input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void onImageFile(file);
+              e.target.value = '';
+            }}
+            display="none"
+          />
+          {adminEdit ? (
+            <Text color="accent.text" fontSize="xs">
+              画像のないカードに「画像」ボタンが表示されます。タップして登録できます。
+            </Text>
+          ) : null}
           <Heading textStyle="display" fontSize={{ base: '2xl', md: '3xl' }} lineHeight="1.15">
             {collection.title}
           </Heading>
@@ -204,6 +265,8 @@ export function CollectionDetail({
             toggle={toggle}
             setCount={setCount}
             shouldShow={shouldShow}
+            adminEdit={adminEdit}
+            requestImage={requestImage}
             grid={grid}
           />
         ) : (
@@ -212,6 +275,8 @@ export function CollectionDetail({
             toggle={toggle}
             setCount={setCount}
             shouldShow={shouldShow}
+            adminEdit={adminEdit}
+            requestImage={requestImage}
             grid={grid}
           />
         )
@@ -223,6 +288,8 @@ export function CollectionDetail({
           toggle={toggle}
           setCount={setCount}
           shouldShow={shouldShow}
+          adminEdit={adminEdit}
+          requestImage={requestImage}
         />
       )}
     </Stack>
@@ -234,6 +301,8 @@ interface GridViewProps {
   toggle: (id: string) => void;
   setCount: (id: string, n: number) => void;
   shouldShow: (id?: string) => boolean;
+  adminEdit?: boolean;
+  requestImage?: (id: string) => void;
 }
 
 interface MemberGridProps extends GridViewProps {
@@ -244,7 +313,15 @@ interface MemberGridProps extends GridViewProps {
   };
 }
 
-function MemberGridTable({ grid, ownership, toggle, setCount, shouldShow }: MemberGridProps) {
+function MemberGridTable({
+  grid,
+  ownership,
+  toggle,
+  setCount,
+  shouldShow,
+  adminEdit,
+  requestImage
+}: MemberGridProps) {
   const visibleNumbers = grid.numbers.filter((no) =>
     grid.members.some((m) => {
       const b = grid.cell(m.id, no);
@@ -339,6 +416,8 @@ function MemberGridTable({ grid, ownership, toggle, setCount, shouldShow }: Memb
                       onToggle={() => toggle(b.id)}
                       onSetCount={(n) => setCount(b.id, n)}
                       size="sm"
+                      adminEdit={adminEdit}
+                      onAddImage={requestImage ? () => requestImage(b.id) : undefined}
                     />
                   ) : (
                     <Box aspectRatio="3 / 4" borderRadius="lg" bgColor="bg.muted" opacity={0.3} />
@@ -381,7 +460,15 @@ function EmptyState({ missingOnly }: { missingOnly: boolean }) {
   );
 }
 
-function MemberSections({ grid, ownership, toggle, setCount, shouldShow }: MemberGridProps) {
+function MemberSections({
+  grid,
+  ownership,
+  toggle,
+  setCount,
+  shouldShow,
+  adminEdit,
+  requestImage
+}: MemberGridProps) {
   return (
     <Stack gap="4">
       {grid.members.map((m) => {
@@ -415,6 +502,8 @@ function MemberSections({ grid, ownership, toggle, setCount, shouldShow }: Membe
                     label={`No.${b.no}`}
                     size="md"
                     showStepper
+                    adminEdit={adminEdit}
+                    onAddImage={requestImage ? () => requestImage(b.id) : undefined}
                   />
                 </Stack>
               ))}
@@ -437,7 +526,9 @@ function FlatGridView({
   ownership,
   toggle,
   setCount,
-  shouldShow
+  shouldShow,
+  adminEdit,
+  requestImage
 }: FlatGridProps) {
   const visible = bromides.filter((b) => shouldShow(b.id));
   const mm = memberMap(catalog);
@@ -459,6 +550,8 @@ function FlatGridView({
               label={member ? `${member.name} No.${b.no}` : `集合 No.${b.no}`}
               size="md"
               showStepper
+              adminEdit={adminEdit}
+              onAddImage={requestImage ? () => requestImage(b.id) : undefined}
             />
           </Stack>
         );

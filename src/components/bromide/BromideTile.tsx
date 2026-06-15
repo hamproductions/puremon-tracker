@@ -1,4 +1,4 @@
-import { FaCheck, FaMinus, FaPlus } from 'react-icons/fa6';
+import { FaCamera, FaCheck, FaMinus, FaPlus } from 'react-icons/fa6';
 import { Box, Center, HStack, Stack, styled } from 'styled-system/jsx';
 import { Text } from '~/components/ui/text';
 import type { Bromide, Member } from '~/types';
@@ -13,6 +13,8 @@ interface BromideTileProps {
   label?: string;
   showStepper?: boolean;
   size?: 'sm' | 'md';
+  adminEdit?: boolean;
+  onAddImage?: () => void;
 }
 
 const Img = styled('img');
@@ -26,7 +28,9 @@ export function BromideTile({
   onSetCount,
   label,
   showStepper = true,
-  size = 'md'
+  size = 'md',
+  adminEdit = false,
+  onAddImage
 }: BromideTileProps) {
   const owned = count >= 1;
   const isDup = count >= 2;
@@ -178,6 +182,36 @@ export function BromideTile({
               <FaPlus size={sm ? 8 : 10} />
             </StepButton>
           </HStack>
+        ) : null}
+
+        {adminEdit && !hasImg && onAddImage ? (
+          <styled.button
+            type="button"
+            aria-label="画像を追加"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddImage();
+            }}
+            style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}
+            cursor="pointer"
+            display="flex"
+            position="absolute"
+            top="1"
+            left="1"
+            gap="1"
+            alignItems="center"
+            borderRadius="md"
+            py="0.5"
+            px="1.5"
+            color="white"
+            fontSize="2xs"
+            fontWeight="bold"
+            bgColor="rgba(0,0,0,0.55)"
+            _hover={{ bgColor: 'rgba(0,0,0,0.75)' }}
+          >
+            <FaCamera size={9} />
+            {sm ? null : '画像'}
+          </styled.button>
         ) : null}
       </Box>
 
