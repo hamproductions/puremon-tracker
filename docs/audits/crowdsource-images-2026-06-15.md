@@ -8,6 +8,7 @@
 - User uploads go to pending submissions; admin uploads write canonical images directly.
 - An image slot is one entity. Pattern-generated slots and arbitrary tagged slots share the same `Bromide` shape.
 - There is no offline image product mode.
+- Canonical image writes require admin permission in application code, in addition to Supabase policy enforcement.
 
 ## Current Implementation
 
@@ -28,6 +29,7 @@
   - arbitrary typed card add/remove for free-list collections.
 - Upload remains crop/document-scanner based.
 - E2E test users are isolated from remote catalog writes and use seed/local data.
+- `catalogActions.setBromideImage` refuses canonical image writes unless the current E2E or Supabase profile is admin.
 
 ## Resolved Issues
 
@@ -48,6 +50,9 @@
 
 6. Browser E2E was not isolated from remote catalog state.
    - Fixed: E2E profiles use seed/local catalog data and skip remote collection/member writes.
+
+7. Canonical image writes depended on caller/UI discipline.
+   - Fixed: `setBromideImage` checks current profile admin status before writing or deleting canonical images.
 
 ## Verification
 
@@ -70,6 +75,16 @@ Browser evidence:
 - `dogfood-output/type-slots/24-type-upload-saved.png`
 - `dogfood-output/type-slots/25-type-uploaded-tile.png`
 - `dogfood-output/type-slots/26-type-image-deleted.png`
+- `dogfood-output/final-permissions/report.md`
+- `dogfood-output/final-permissions/videos/user-submission-flow.webm`
+- `dogfood-output/final-permissions/videos/admin-management-flow.webm`
+- `dogfood-output/final-permissions/videos/admin-delete-proof-clean.webm`
+- `dogfood-output/final-permissions/screenshots/02-user-mixed-collection.png`
+- `dogfood-output/final-permissions/screenshots/06-user-submission-summary.png`
+- `dogfood-output/final-permissions/screenshots/08-admin-edit-modal-from-collection.png`
+- `dogfood-output/final-permissions/screenshots/10-admin-tagged-slot-rendered.png`
+- `dogfood-output/final-permissions/screenshots/15-admin-uploaded-tile.png`
+- `dogfood-output/final-permissions/screenshots/19-delete-proof-after-delete.png`
 
 ## Remaining Risk
 

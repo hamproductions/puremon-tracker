@@ -15,8 +15,9 @@ import {
   remoteCatalogStore,
   useStore
 } from '~/data/store';
-import { hasE2EProfile } from '~/lib/e2eAuth';
-import { isSupabaseConfigured } from '~/lib/supabase';
+import { toProfile } from '~/lib/authProfile';
+import { hasE2EProfile, readE2EProfile } from '~/lib/e2eAuth';
+import { getSupabase, isSupabaseConfigured } from '~/lib/supabase';
 import type { Catalog, Collection, Member } from '~/types';
 
 function mergeById<T extends { id: string }>(base: T[], extra: T[]): T[] {
@@ -133,6 +134,7 @@ export const catalogActions = {
   },
   async setBromideImage(bromideId: string, imageUrl: string | null) {
     if (hasE2EProfile()) {
+      if (!readE2EProfile()?.isAdmin) return false;
       bromideImagesStore.update((images) => {
         const next = { ...images };
         if (imageUrl) next[bromideId] = imageUrl;
@@ -142,6 +144,11 @@ export const catalogActions = {
       return true;
     }
     if (!isSupabaseConfigured) return false;
+    const sb = getSupabase();
+    const {
+      data: { session }
+    } = (await sb?.auth.getSession()) ?? { data: { session: null } };
+    if (!toProfile(session?.user)?.isAdmin) return false;
     try {
       await setBromideImageRemote(bromideId, imageUrl);
       await refreshRemoteCatalog();
