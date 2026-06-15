@@ -1,0 +1,14 @@
+{
+  "name": "ピュアモン ブロマイド管理",
+  "short_name": "ピュアモン",
+  "description": "ピュアリーモンスターのブロマイド管理＆交換ツール",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#16101a",
+  "theme_color": "#FF5FA2",
+  "lang": "ja",
+  "icons": [
+    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

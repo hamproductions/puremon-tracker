@@ -1,0 +1,93 @@
+import { useSyncExternalStore } from 'react';
+import type { Collection, Member, OwnershipMap, Submission, TradeListing } from '~/types';
+
+type Listener = () => void;
+
+export interface PersistedStore<T> {
+  key: string;
+  get: () => T;
+  set: (next: T) => void;
+  update: (fn: (prev: T) => T) => void;
+  subscribe: (listener: Listener) => () => void;
+  getServerSnapshot: () => T;
+}
+
+function createPersistedStore<T>(key: string, initial: T): PersistedStore<T> {
+  let value: T = initial;
+  let hydrated = false;
+  const listeners = new Set<Listener>();
+
+  const read = (): T => {
+    if (typeof window === 'undefined') return initial;
+    try {
+      const raw = localStorage.getItem(key);
+      return raw !== null ? (JSON.parse(raw) as T) : initial;
+    } catch {
+      return initial;
+    }
+  };
+
+  const ensureHydrated = () => {
+    if (!hydrated && typeof window !== 'undefined') {
+      value = read();
+      hydrated = true;
+    }
+  };
+
+  const set = (next: T) => {
+    value = next;
+    hydrated = true;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(key, JSON.stringify(next));
+      } catch {
+        /* quota / private mode — keep in-memory */
+      }
+    }
+    listeners.forEach((l) => l());
+  };
+
+  return {
+    key,
+    get() {
+      ensureHydrated();
+      return value;
+    },
+    set,
+    update(fn) {
+      set(fn(this.get()));
+    },
+    subscribe(listener) {
+      ensureHydrated();
+      listeners.add(listener);
+      const onStorage = (e: StorageEvent) => {
+        if (e.key !== key) return;
+        value = read();
+        listeners.forEach((l) => l());
+      };
+      if (typeof window !== 'undefined') window.addEventListener('storage', onStorage);
+      return () => {
+        listeners.delete(listener);
+        if (typeof window !== 'undefined') window.removeEventListener('storage', onStorage);
+      };
+    },
+    getServerSnapshot() {
+      return initial;
+    }
+  };
+}
+
+export function useStore<T>(store: PersistedStore<T>): T {
+  return useSyncExternalStore(store.subscribe, store.get, store.getServerSnapshot);
+}
+
+export const customCollectionsStore = createPersistedStore<Collection[]>('puremon:collections', []);
+export const customMembersStore = createPersistedStore<Member[]>('puremon:members', []);
+export const bromideImagesStore = createPersistedStore<Record<string, string>>(
+  'puremon:images',
+  {}
+);
+export const ownershipStore = createPersistedStore<OwnershipMap>('puremon:ownership', {});
+export const submissionsStore = createPersistedStore<Submission[]>('puremon:submissions', []);
+export const tradesStore = createPersistedStore<TradeListing[]>('puremon:trades', []);
+export const localAdminStore = createPersistedStore<boolean>('puremon:admin', false);
