@@ -67,16 +67,17 @@ export default function Page() {
           <Stat label="不足" value={mounted ? `${overall.missing}` : '—'} />
           <Stat label="ダブり" value={mounted ? `${overall.duplicates}` : '—'} />
         </Grid>
-        <Button
-          size="sm"
-          variant="subtle"
-          onClick={() => setExportOpen(true)}
-          disabled={!mounted || overall.owned === 0}
-          alignSelf="flex-start"
-        >
-          <FaImage />
-          進捗を画像で保存
-        </Button>
+        {mounted && overall.owned > 0 ? (
+          <Button
+            size="sm"
+            variant="subtle"
+            onClick={() => setExportOpen(true)}
+            alignSelf="flex-start"
+          >
+            <FaImage />
+            進捗を画像で保存
+          </Button>
+        ) : null}
       </Stack>
 
       <Grid gap="2" columns={{ base: 1, sm: 2 }}>
