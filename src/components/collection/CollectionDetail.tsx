@@ -24,6 +24,7 @@ import { useAuth } from '~/hooks/useAuth';
 import { catalogActions } from '~/hooks/useCatalog';
 import { useUserPreference } from '~/hooks/useUserPreference';
 import type { Bromide, Catalog, Collection, Member } from '~/types';
+import { DEFAULT_BROMIDE_ASPECT, bromideAspectRatio } from '~/utils/aspect';
 import { bromideCount, buildGrid, collectionStats, memberMap, slotLabel } from '~/utils/stats';
 import { toAppUrl } from '~/utils/url';
 import { formatReleaseDate, kindLabel, memberCountLabel } from './format';
@@ -712,7 +713,14 @@ function MemberGridTable({
                       onRemoveImage={removeImage ? () => removeImage(b) : undefined}
                     />
                   ) : (
-                    <Box aspectRatio="3 / 4" borderRadius="lg" bgColor="bg.muted" opacity={0.3} />
+                    <Box
+                      style={{
+                        aspectRatio: b ? bromideAspectRatio(b) : `${DEFAULT_BROMIDE_ASPECT} / 1`
+                      }}
+                      borderRadius="lg"
+                      bgColor="bg.muted"
+                      opacity={0.3}
+                    />
                   )}
                 </Box>
               );
@@ -883,7 +891,7 @@ function FlatGridView({
           flexDirection="column"
           justifyContent="center"
           alignItems="center"
-          aspectRatio="3 / 4"
+          aspectRatio={String(DEFAULT_BROMIDE_ASPECT)}
           borderColor="board.border"
           borderRadius="lg"
           borderWidth="2px"

@@ -160,3 +160,41 @@ Real browser findings:
 - Current deployed Supabase still returns `404 PGRST205` for `public.oshi`.
 - Current deployed Supabase still needs `supabase/live-persistence-hotfix-2026-06-16.sql` applied before selected oshi and user preference persistence can pass.
 - Browser reload/cross-session proof remains blocked by the live DB/session test state and must be rerun after the SQL hotfix is applied.
+
+## 2026-06-16 aspect slot repair evidence
+
+Implemented:
+
+- `BromideSpec.aspect` now propagates to runtime `Bromide.aspect`.
+- Slot display uses each bromide's own aspect ratio instead of hard-coded portrait layout.
+- Legacy slots without an aspect still default to `3/4`.
+- Admin collection table includes a `比率` column.
+- Admin generated collections accept a custom aspect value such as `3/4`, `4/3`, `1`, `16/9`, or a positive number.
+- Admin free-list items accept per-item aspect values.
+- Upload target cards and submission review cards respect the target slot aspect.
+- Crop mode defaults from target aspect: portrait, landscape, square, or free for custom ratios.
+
+Verification:
+
+```text
+bun test src/utils/aspect.test.ts src/data/catalog.test.ts src/hooks/useCatalog.test.ts src/components/photo/cropModes.test.ts: pass
+bun run type-check: pass
+bun run lint: pass with existing Panda warnings in src/pages/+Layout.tsx
+bun run build: pass
+```
+
+Browser evidence captured through `agent-browser`:
+
+- `dogfood-output/aspect-slots-2026-06-16/screenshots/admin-aspect-table.png`
+- `dogfood-output/aspect-slots-2026-06-16/screenshots/admin-aspect-create-modal.png`
+- `dogfood-output/aspect-slots-2026-06-16/screenshots/admin-landscape-created.png`
+- `dogfood-output/aspect-slots-2026-06-16/screenshots/landscape-detail-rendered-fixed.png`
+- `dogfood-output/aspect-slots-2026-06-16/screenshots/landscape-upload-setup.png`
+
+Measured browser results:
+
+```text
+admin-created landscape slot aspect: 1.3333333333333333
+landscape detail tile: 582x437, ratio 1.33
+landscape upload target: 117x88, ratio 1.33
+```

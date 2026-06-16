@@ -44,4 +44,20 @@ describe('typed bromide slots', () => {
   test('uses the type as the visible slot label', () => {
     expect(bromideLabel(catalog, catalog.bromides[1])).toBe('菅原もも rare');
   });
+
+  test('preserves custom slot aspect', () => {
+    const custom: Collection = {
+      ...collection,
+      slots: [
+        {
+          slotId: 'test:slot:landscape',
+          memberId: 'momo',
+          no: 1,
+          aspect: 4 / 3
+        }
+      ]
+    };
+
+    expect(buildBromides(custom)[0]?.aspect).toBeCloseTo(4 / 3);
+  });
 });

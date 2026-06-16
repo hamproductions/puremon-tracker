@@ -10,3 +10,11 @@ export const CROP_MODES: { value: CropMode; label: string; aspect?: number }[] =
 export function cropModeAspect(mode: CropMode): number | undefined {
   return CROP_MODES.find((item) => item.value === mode)?.aspect;
 }
+
+export function cropModeForAspect(aspect?: number): CropMode {
+  if (!aspect) return 'portrait';
+  if (Math.abs(aspect - 4 / 3) < 0.001) return 'landscape';
+  if (Math.abs(aspect - 1) < 0.001) return 'square';
+  if (Math.abs(aspect - 3 / 4) < 0.001) return 'portrait';
+  return 'free';
+}

@@ -16,6 +16,7 @@ import { catalogActions } from '~/hooks/useCatalog';
 import { bromideId, buildBromides, collectionSizes, seedCatalog } from '~/data/catalog';
 import { formatReleaseDate, kindLabel, memberCountLabel } from '~/components/collection/format';
 import type { BromideSpec, Catalog, Collection, CollectionKind, Member } from '~/types';
+import { formatAspect, parseAspect } from '~/utils/aspect';
 
 const SEED_IDS = new Set(seedCatalog.collections.map((c) => c.id));
 
@@ -64,9 +65,11 @@ interface FormState {
   memberIds: Set<string>;
   count: number;
   sizes: string;
+  aspectText: string;
   items: BromideSpec[];
   addMemberId: string | null;
   addNo: number;
+  addAspectText: string;
 }
 
 function parseSizes(value: string): string[] {
@@ -85,13 +88,19 @@ function emptyForm(members: Member[]): FormState {
     memberIds: new Set(members.map((m) => m.id)),
     count: 3,
     sizes: '',
+    aspectText: '',
     items: [],
     addMemberId: members[0]?.id ?? null,
-    addNo: 1
+    addNo: 1,
+    addAspectText: ''
   };
 }
 
-function buildStableSlots(collection: Collection, previous: Collection | null): BromideSpec[] {
+function buildStableSlots(
+  collection: Collection,
+  previous: Collection | null,
+  aspect?: number
+): BromideSpec[] {
   const previousByLegacy = new Map<string, { id: string; legacyIds: string[] }>();
   if (previous) {
     for (const b of buildBromides(previous)) {
@@ -107,7 +116,7 @@ function buildStableSlots(collection: Collection, previous: Collection | null): 
         )
       : collectionSizes(collection).flatMap((size) =>
           (collection.kind === 'flat' ? [null] : collection.memberIds).flatMap((memberId) =>
-            collection.numbers.map((no) => ({ memberId, size, no }))
+            collection.numbers.map((no) => ({ memberId, size, no, aspect }))
           )
         );
 
@@ -150,14 +159,17 @@ export function CollectionEditor({
         ),
         count: editing.numbers.length || 1,
         sizes: (editing.sizes ?? []).join(', '),
+        aspectText: formatAspect(editing.slots?.find((slot) => slot.aspect)?.aspect),
         items: (editing.items ?? []).map((it) => ({
           memberId: it.memberId,
           no: it.no,
           type: it.type,
-          label: it.label
+          label: it.label,
+          aspect: it.aspect
         })),
         addMemberId: catalog.members[0]?.id ?? null,
-        addNo: 1
+        addNo: 1,
+        addAspectText: ''
       });
     } else {
       setForm(emptyForm(catalog.members));
@@ -193,6 +205,7 @@ export function CollectionEditor({
         ? null
         : document.querySelector<HTMLInputElement>('[data-add-type-input]');
     const type = input?.value.trim() || undefined;
+    const aspect = parseAspect(form.addAspectText);
     setForm((prev) => {
       const exists = prev.items.some(
         (it) => it.memberId === prev.addMemberId && it.no === prev.addNo && it.type === type
@@ -203,7 +216,7 @@ export function CollectionEditor({
       }
       return {
         ...prev,
-        items: [...prev.items, { memberId: prev.addMemberId, no: prev.addNo, type }]
+        items: [...prev.items, { memberId: prev.addMemberId, no: prev.addNo, type, aspect }]
       };
     });
     if (input) input.value = '';
@@ -221,6 +234,7 @@ export function CollectionEditor({
   const save = () => {
     if (!canSave) return;
     const sizes = parseSizes(form.sizes);
+    const aspect = parseAspect(form.aspectText);
     const base = {
       id: editing?.id ?? `${slugify(form.title)}-${Date.now().toString(36)}`,
       title: form.title.trim(),
@@ -240,7 +254,8 @@ export function CollectionEditor({
               memberId: it.memberId,
               no: it.no,
               type: it.type,
-              label: it.label
+              label: it.label,
+              aspect: it.aspect
             }))
           }
         : {
@@ -251,7 +266,7 @@ export function CollectionEditor({
           };
     const collection: Collection = {
       ...collectionWithoutSlots,
-      slots: buildStableSlots(collectionWithoutSlots, editing)
+      slots: buildStableSlots(collectionWithoutSlots, editing, aspect)
     };
     catalogActions.upsertCollection(collection);
     toast({ title: editing ? '更新しました' : '作成しました', type: 'success' });
@@ -297,7 +312,7 @@ export function CollectionEditor({
       </HStack>
 
       <Box borderColor="board.border" borderRadius="lg" borderWidth="1px" overflowX="auto">
-        <Table.Root minW="760px">
+        <Table.Root minW="840px">
           <Table.Head>
             <Table.Row>
               <Table.Header>タイトル</Table.Header>
@@ -306,6 +321,7 @@ export function CollectionEditor({
               <Table.Header>対象</Table.Header>
               <Table.Header>番号/点数</Table.Header>
               <Table.Header>サイズ</Table.Header>
+              <Table.Header>比率</Table.Header>
               <Table.Header>総枚数</Table.Header>
               <Table.Header>状態</Table.Header>
               <Table.Header textAlign="right">操作</Table.Header>
@@ -359,6 +375,11 @@ export function CollectionEditor({
                   <Table.Cell>
                     <Text color="fg.muted" fontSize="sm" whiteSpace="nowrap">
                       {c.sizes?.length ? c.sizes.join(', ') : 'なし'}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text color="fg.muted" fontSize="sm" whiteSpace="nowrap">
+                      {formatAspect(c.slots?.find((slot) => slot.aspect)?.aspect) || '3/4'}
                     </Text>
                   </Table.Cell>
                   <Table.Cell>
@@ -494,6 +515,17 @@ export function CollectionEditor({
                   placeholder="L, 2L"
                 />
               </Stack>
+
+              {form.kind === 'mixed' ? null : (
+                <Stack gap="1.5">
+                  <FieldLabel>画像比率（空欄で 3/4）</FieldLabel>
+                  <Input
+                    value={form.aspectText}
+                    onChange={(e) => patch({ aspectText: e.target.value })}
+                    placeholder="3/4, 4/3, 1, 16/9"
+                  />
+                </Stack>
+              )}
 
               {form.kind === 'member_grid' ? (
                 <Stack gap="1.5">
@@ -635,6 +667,14 @@ export function CollectionEditor({
                         bgColor="bg.default"
                       />
                     </Stack>
+                    <Stack flex="1" gap="1.5">
+                      <FieldLabel>画像比率</FieldLabel>
+                      <Input
+                        value={form.addAspectText}
+                        onChange={(e) => patch({ addAspectText: e.target.value })}
+                        placeholder="4/3"
+                      />
+                    </Stack>
                     <Button
                       type="button"
                       variant="outline"
@@ -680,6 +720,11 @@ export function CollectionEditor({
                             <Text color="fg.muted" fontSize="xs" fontWeight="bold">
                               {it.type ?? `No.${it.no}`}
                             </Text>
+                            {it.aspect ? (
+                              <Badge size="sm" variant="subtle" colorPalette="gray">
+                                {formatAspect(it.aspect)}
+                              </Badge>
+                            ) : null}
                             <Box
                               as="button"
                               aria-label="削除"

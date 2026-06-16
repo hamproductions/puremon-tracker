@@ -182,6 +182,7 @@ export function buildBromides(collection: Collection): Bromide[] {
         no: it.no,
         type: it.type,
         label: it.label,
+        aspect: it.aspect,
         createdAt
       };
     });
@@ -202,6 +203,7 @@ export function buildBromides(collection: Collection): Bromide[] {
           no: it.no,
           type: it.type,
           label: it.label,
+          aspect: it.aspect,
           createdAt
         };
       })
@@ -219,6 +221,7 @@ export function buildBromides(collection: Collection): Bromide[] {
         size,
         no,
         type: String(no),
+        aspect: undefined,
         createdAt
       }))
     )

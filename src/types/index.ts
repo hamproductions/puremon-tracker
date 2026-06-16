@@ -50,6 +50,7 @@ export interface Bromide {
   no: number;
   type?: string;
   label?: string;
+  aspect?: number;
   imageUrl?: string;
   createdAt: string;
 }

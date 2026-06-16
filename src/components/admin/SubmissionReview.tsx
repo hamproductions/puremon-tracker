@@ -11,6 +11,7 @@ import { submissionsStore, useStore } from '~/data/store';
 import { hasE2EProfile } from '~/lib/e2eAuth';
 import { getSupabase } from '~/lib/supabase';
 import type { Catalog, Submission, SubmissionStatus } from '~/types';
+import { DEFAULT_BROMIDE_ASPECT, bromideAspectRatio } from '~/utils/aspect';
 import { bromideLabel } from '~/utils/stats';
 
 const Img = styled('img');
@@ -145,7 +146,15 @@ export function SubmissionReview({ catalog }: { catalog: Catalog }) {
                   bgColor="board.panel"
                   overflow="hidden"
                 >
-                  <Box position="relative" aspectRatio="3 / 4" bgColor="board.tile">
+                  <Box
+                    style={{
+                      aspectRatio: bromide
+                        ? bromideAspectRatio(bromide)
+                        : `${DEFAULT_BROMIDE_ASPECT} / 1`
+                    }}
+                    position="relative"
+                    bgColor="board.tile"
+                  >
                     <Img
                       src={s.imageUrl}
                       alt=""
@@ -208,10 +217,14 @@ export function SubmissionReview({ catalog }: { catalog: Catalog }) {
                   bgColor="board.panel"
                 >
                   <Box
+                    style={{
+                      aspectRatio: bromide
+                        ? bromideAspectRatio(bromide)
+                        : `${DEFAULT_BROMIDE_ASPECT} / 1`
+                    }}
                     flexShrink={0}
                     borderRadius="md"
-                    w="10"
-                    h="14"
+                    w="14"
                     bgColor="board.tile"
                     overflow="hidden"
                   >

@@ -2,6 +2,7 @@ import { FaCamera, FaCheck, FaMinus, FaPlus, FaTrash, FaXmark } from 'react-icon
 import { Box, Center, HStack, Stack, styled } from 'styled-system/jsx';
 import { Text } from '~/components/ui/text';
 import type { Bromide, Member } from '~/types';
+import { bromideAspectRatio } from '~/utils/aspect';
 import { readableText } from '~/utils/color';
 import { slotLabel } from '~/utils/stats';
 
@@ -73,12 +74,12 @@ export function BromideTile({
           }
         }}
         style={{
+          aspectRatio: bromideAspectRatio(bromide),
           backgroundColor: owned && !hasImg ? color : undefined,
           borderColor: owned || editClickable ? color : undefined
         }}
         cursor={clickable ? 'pointer' : 'default'}
         position="relative"
-        aspectRatio="3 / 4"
         borderColor={owned ? undefined : 'board.border'}
         borderRadius={sm ? 'md' : 'lg'}
         borderWidth={editClickable ? '2px' : '1px'}

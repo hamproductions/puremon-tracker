@@ -26,8 +26,9 @@ import { uploadBromideImage } from '~/lib/storage';
 import { createImageSubmission, saveImageSubmission } from '~/lib/submissions';
 import type { Bromide, Catalog, Collection } from '~/types';
 import { bromideLabel, bromidesByCollection, memberColor } from '~/utils/stats';
-import { CROP_MODES, cropModeAspect, type CropMode } from './cropModes';
+import { CROP_MODES, cropModeAspect, cropModeForAspect, type CropMode } from './cropModes';
 import { getCroppedBlob } from './cropImage';
+import { bromideAspectRatio } from '~/utils/aspect';
 import { scanDocument } from './documentScanner';
 
 const Img = styled('img');
@@ -134,6 +135,7 @@ function PhotoAddBody({
   const [cropIndex, setCropIndex] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
   const [cropMode, setCropMode] = useState<CropMode>('portrait');
+  const firstTarget = queueBromides[0];
 
   const toggleTarget = (id: string) => {
     setTouched(true);
@@ -153,7 +155,7 @@ function PhotoAddBody({
       setPicked(next);
       setCropIndex(0);
       setSavedCount(0);
-      setCropMode('portrait');
+      setCropMode(cropModeForAspect(firstTarget?.aspect));
       setPhase('cropping');
     });
   };
@@ -395,8 +397,8 @@ function SetupStep({
                   _hover={{ opacity: 1 }}
                 >
                   <Box
+                    style={{ aspectRatio: bromideAspectRatio(b) }}
                     position="relative"
-                    aspectRatio="3 / 4"
                     borderRadius="md"
                     bgColor="board.canvas"
                     overflow="hidden"
@@ -527,13 +529,14 @@ function CropStep({
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setAreaPixels(null);
+    setCropMode(cropModeForAspect(target?.aspect));
     if (scanTokenRef.current) scanTokenRef.current.cancelled = true;
     setScanning(false);
     setScannedSrc((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
-  }, [cropIndex]);
+  }, [cropIndex, setCropMode, target?.aspect]);
 
   useEffect(() => {
     return () => {
