@@ -234,7 +234,7 @@ export function BromideTile({
         {adminEdit && hasImg && onRemoveImage ? (
           <styled.button
             type="button"
-            aria-label="画像を削除"
+            aria-label={`${name}の画像を削除`}
             onClick={(e) => {
               e.stopPropagation();
               onRemoveImage();
@@ -261,7 +261,7 @@ export function BromideTile({
         {adminEdit && onRemoveCard ? (
           <styled.button
             type="button"
-            aria-label="カードを削除"
+            aria-label={`${name}のカードを削除`}
             onClick={(e) => {
               e.stopPropagation();
               onRemoveCard();

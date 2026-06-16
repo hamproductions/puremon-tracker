@@ -66,6 +66,9 @@
 11. Image contribution buttons had duplicate labels and small hit targets.
    - Fixed: each action is uniquely labelled with the slot name and has a wider visible target.
 
+12. Destructive image/card actions were still generic.
+   - Fixed: admin image delete and card delete controls now include the slot name in their labels.
+
 ## Verification
 
 Commands:
@@ -83,7 +86,7 @@ Configured Supabase anon-policy check:
 - Public approved images read: pass
 - Anonymous submission insert blocked: pass
 - Anonymous storage upload blocked: pass
-- Authenticated non-admin `profiles.is_admin` update with `test_user@ham-san.net`: fails on the currently deployed database until `0004_profile_update_policy_guard.sql` is applied; verifier rolls back the probe account to `is_admin=false`.
+- Authenticated non-admin `profiles.is_admin` update with `test_user@ham-san.net`: still fails on the currently deployed database until the live profile-policy SQL is applied; verifier rolls back the probe account to `is_admin=false`.
 
 Browser evidence:
 
@@ -110,9 +113,11 @@ Browser evidence:
 - `dogfood-output/final-permissions/screenshots/19-delete-proof-after-delete.png`
 - `dogfood-output/real-user-supabase-2026-06-16/report.md`
 - `dogfood-output/real-user-supabase-2026-06-16/videos/final-user-login-upload.webm`
+- `dogfood-output/real-user-supabase-2026-06-16/videos/final-admin-canonical-upload-delete.webm`
 - `dogfood-output/real-user-supabase-2026-06-16/screenshots/final-user-login-upload-result.png`
 - `dogfood-output/real-user-supabase-2026-06-16/screenshots/final-user-ownership-supabase.png`
 - `dogfood-output/real-user-supabase-2026-06-16/screenshots/final-user-ownership-fresh-login.png`
+- `dogfood-output/real-user-supabase-2026-06-16/screenshots/final-admin-canonical-upload-delete-result.png`
 
 Real Supabase user-flow proof from 2026-06-16:
 
@@ -124,9 +129,16 @@ Real Supabase user-flow proof from 2026-06-16:
   - `POST /rest/v1/submissions` returned 201.
   - The latest submission image URL is a Supabase public storage URL.
   - `puremon:images` stayed `null`.
+- `test_admin@ham-san.net` signed in through Supabase password auth and rendered `/admin` as `@Test_Admin`.
+- Admin image management uploaded `floral:arisa:L:1` as a canonical image, then deleted the test row:
+  - `POST /storage/v1/object/bromides/floral:arisa:L:1/1781570108955.jpg` returned 200.
+  - `POST /rest/v1/bromide_images` returned 201.
+  - No `submissions` row was created for the admin canonical upload.
+  - `DELETE /rest/v1/bromide_images?bromide_id=eq.floral%3Aarisa%3AL%3A1` returned 204.
+  - A follow-up query returned no `bromide_images` rows for `floral:arisa:L:1`.
+  - `puremon:images` stayed `null`.
 
 ## Remaining Risk
 
 - Deployed Supabase projects must apply `supabase/migrations/0003_profile_admin_guard.sql`, `supabase/migrations/0004_profile_update_policy_guard.sql`, and `supabase/migrations/0005_profile_read_policy_guard.sql`. Live verification with `test_user@ham-san.net` still fails until the deployed DB blocks anonymous profile reads and non-admin `is_admin` escalation.
 - For the current live database, the same profile policy fix is bundled in `supabase/live-policy-hotfix-2026-06-16.sql` for one SQL Editor run.
-- The supplied `test_admin@ham-san.net` account currently has `profiles.is_admin=false`, so it cannot validate admin-only canonical upload, collection CRUD, or submission approval until promoted.
