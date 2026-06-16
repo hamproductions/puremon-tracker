@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FaCheck, FaPenToSquare, FaPlus, FaTrash, FaXmark } from 'react-icons/fa6';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FaCheck, FaPenToSquare, FaPlus, FaTrash } from 'react-icons/fa6';
 import { Box, Grid, HStack, Stack, Wrap, styled } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -13,39 +13,25 @@ import { Textarea } from '~/components/ui/textarea';
 import { useToaster } from '~/context/ToasterContext';
 import { catalogActions } from '~/hooks/useCatalog';
 import { bromideId, buildBromides, collectionSizes, seedCatalog } from '~/data/catalog';
-import { formatReleaseDate, kindLabel, memberCountLabel } from '~/components/collection/format';
+import { formatReleaseDate, memberCountLabel } from '~/components/collection/format';
 import type { Bromide, BromideSpec, Catalog, Collection, CollectionKind, Member } from '~/types';
-import { formatAspect, parseAspect } from '~/utils/aspect';
+import { DEFAULT_BROMIDE_ASPECT } from '~/utils/aspect';
 
 const SEED_IDS = new Set(seedCatalog.collections.map((c) => c.id));
 
-const TEMPLATES: {
-  value: CollectionKind;
-  label: string;
-  hint: string;
-  example: string;
-}[] = [
-  {
-    value: 'member_grid',
-    label: 'メンバー別グリッド',
-    hint: 'メンバー × 番号で一括生成',
-    example: '例：7人 × 10番号 → 70枚'
-  },
-  {
-    value: 'flat',
-    label: '番号だけ',
-    hint: '集合写真など、番号のみで一括生成',
-    example: '例：41番号 → 41枚'
-  },
-  {
-    value: 'mixed',
-    label: '自由リスト',
-    hint: '1枚ずつ自由に並べる（番号の一括追加も可）',
-    example: '例：メンバー指定や特殊カード'
-  }
+const LANDSCAPE_ASPECT = 4 / 3;
+
+const PRESETS: { value: CollectionKind; label: string }[] = [
+  { value: 'member_grid', label: 'メンバー別' },
+  { value: 'flat', label: '番号だけ' },
+  { value: 'mixed', label: '自由' }
 ];
 
 const GROUP_VALUE = '__group__';
+
+function isLandscape(aspect?: number): boolean {
+  return Math.abs((aspect ?? DEFAULT_BROMIDE_ASPECT) - LANDSCAPE_ASPECT) < 0.001;
+}
 
 function newSlotId(collectionId: string): string {
   const id =
@@ -83,21 +69,10 @@ interface FormState {
   kind: CollectionKind;
   memberIds: Set<string>;
   count: number;
-  sizes: string;
-  aspectText: string;
+  seedL: boolean;
+  seed2L: boolean;
+  seedLandscape: boolean;
   items: BromideSpec[];
-  addMemberId: string | null;
-  addNo: number;
-  addAspectText: string;
-  bulkFrom: number;
-  bulkTo: number;
-}
-
-function parseSizes(value: string): string[] {
-  return value
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
 }
 
 function emptyForm(members: Member[]): FormState {
@@ -107,15 +82,11 @@ function emptyForm(members: Member[]): FormState {
     releaseDate: '',
     kind: 'member_grid',
     memberIds: new Set(members.map((m) => m.id)),
-    count: 3,
-    sizes: '',
-    aspectText: '',
-    items: [],
-    addMemberId: members[0]?.id ?? null,
-    addNo: 1,
-    addAspectText: '',
-    bulkFrom: 1,
-    bulkTo: 10
+    count: 10,
+    seedL: true,
+    seed2L: false,
+    seedLandscape: false,
+    items: []
   };
 }
 
@@ -157,6 +128,48 @@ export function buildStableSlots(
   });
 }
 
+function buildSlotsFromItems(
+  collectionId: string,
+  items: BromideSpec[],
+  previous: Collection | null
+): BromideSpec[] {
+  const previousByLegacy = new Map<string, { id: string; legacyIds: string[] }>();
+  if (previous) {
+    for (const b of buildBromides(previous)) {
+      previousByLegacy.set(b.id, { id: b.id, legacyIds: b.legacyIds });
+      for (const legacyId of b.legacyIds) previousByLegacy.set(legacyId, b);
+    }
+  }
+
+  return items.map((it) => {
+    const legacyId = bromideId(collectionId, it.memberId, it.no, it.size ?? null);
+    const previousSlot = previousByLegacy.get(legacyId);
+    const slotId = previousSlot?.id ?? newSlotId(collectionId);
+    return {
+      memberId: it.memberId,
+      no: it.no,
+      size: it.size ?? null,
+      aspect: it.aspect,
+      slotId,
+      legacyIds: unique([legacyId, ...(previousSlot?.legacyIds ?? [])]).filter(
+        (id) => id !== slotId
+      )
+    };
+  });
+}
+
+function loadItems(bromides: Bromide[]): BromideSpec[] {
+  const seen = new Set<string>();
+  const items: BromideSpec[] = [];
+  for (const b of bromides) {
+    const key = `${b.memberId ?? GROUP_VALUE}:${b.no}:${b.size ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    items.push({ memberId: b.memberId, no: b.no, size: b.size ?? null, aspect: b.aspect });
+  }
+  return items;
+}
+
 export function orphanedImageCount(previousBromides: Bromide[], nextSlots: BromideSpec[]): number {
   const kept = new Set<string>();
   for (const slot of nextSlots) {
@@ -184,6 +197,9 @@ export function CollectionEditor({
   } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<FormState>(() => emptyForm(catalog.members));
+  const [selected, setSelected] = useState<Set<number>>(() => new Set());
+  const [sort, setSort] = useState<{ key: 'member' | 'no' | 'size'; dir: 1 | -1 } | null>(null);
+  const dragIndex = useRef<number | null>(null);
 
   useEffect(() => {
     if (editing) {
@@ -196,24 +212,16 @@ export function CollectionEditor({
           editing.memberIds.length ? editing.memberIds : catalog.members.map((m) => m.id)
         ),
         count: editing.numbers.length || 1,
-        sizes: (editing.sizes ?? []).join(', '),
-        aspectText: formatAspect(editing.slots?.find((slot) => slot.aspect)?.aspect),
-        items: (editing.items ?? []).map((it) => ({
-          memberId: it.memberId,
-          no: it.no,
-          type: it.type,
-          label: it.label,
-          aspect: it.aspect
-        })),
-        addMemberId: catalog.members[0]?.id ?? null,
-        addNo: 1,
-        addAspectText: '',
-        bulkFrom: 1,
-        bulkTo: 10
+        seedL: (editing.sizes ?? []).includes('L'),
+        seed2L: (editing.sizes ?? []).includes('2L'),
+        seedLandscape: false,
+        items: loadItems(buildBromides(editing))
       });
     } else {
       setForm(emptyForm(catalog.members));
     }
+    setSelected(new Set());
+    setSort(null);
   }, [editing, catalog.members]);
 
   useEffect(() => {
@@ -226,7 +234,16 @@ export function CollectionEditor({
 
   const patch = (p: Partial<FormState>) => setForm((prev) => ({ ...prev, ...p }));
 
-  const toggleMember = (id: string) =>
+  const memberById = useMemo(
+    () => new Map(catalog.members.map((m) => [m.id, m] as const)),
+    [catalog.members]
+  );
+  const memberOrder = useMemo(
+    () => new Map(catalog.members.map((m, i) => [m.id, i])),
+    [catalog.members]
+  );
+
+  const toggleSeedMember = (id: string) =>
     setForm((prev) => {
       const next = new Set(prev.memberIds);
       if (next.has(id)) next.delete(id);
@@ -234,78 +251,119 @@ export function CollectionEditor({
       return { ...prev, memberIds: next };
     });
 
-  const selectedMembers = useMemo(
-    () => catalog.members.filter((m) => form.memberIds.has(m.id)),
-    [catalog.members, form.memberIds]
-  );
+  const setItems = (next: BromideSpec[] | ((prev: BromideSpec[]) => BromideSpec[])) =>
+    setForm((prev) => ({
+      ...prev,
+      items: typeof next === 'function' ? next(prev.items) : next
+    }));
 
-  const addItem = () => {
-    const input =
-      typeof document === 'undefined'
-        ? null
-        : document.querySelector<HTMLInputElement>('[data-add-type-input]');
-    const type = input?.value.trim() || undefined;
-    const aspect = parseAspect(form.addAspectText);
+  const updateItem = (index: number, p: Partial<BromideSpec>) =>
+    setItems((items) => items.map((it, i) => (i === index ? { ...it, ...p } : it)));
+
+  const removeItem = (index: number) => {
+    setItems((items) => items.filter((_, i) => i !== index));
+    setSelected(new Set());
+  };
+
+  const seedGrid = () => {
     setForm((prev) => {
-      const exists = prev.items.some(
-        (it) => it.memberId === prev.addMemberId && it.no === prev.addNo && it.type === type
+      const members: (string | null)[] =
+        prev.kind === 'member_grid'
+          ? catalog.members.filter((m) => prev.memberIds.has(m.id)).map((m) => m.id)
+          : [null];
+      if (members.length === 0) {
+        toast({ title: 'メンバーを選んでください', type: 'error' });
+        return prev;
+      }
+      const sizes = [prev.seedL ? 'L' : null, prev.seed2L ? '2L' : null].filter(
+        (s): s is string => s !== null
       );
-      if (exists) {
-        toast({ title: 'すでに追加済みです', type: 'error' });
-        return prev;
+      const sizeList: (string | null)[] = sizes.length > 0 ? sizes : [null];
+      const aspect = prev.seedLandscape ? LANDSCAPE_ASPECT : DEFAULT_BROMIDE_ASPECT;
+      const count = Math.max(1, prev.count);
+      const items: BromideSpec[] = [];
+      for (const memberId of members) {
+        for (let no = 1; no <= count; no += 1) {
+          for (const size of sizeList) items.push({ memberId, no, size, aspect });
+        }
       }
-      return {
-        ...prev,
-        items: [...prev.items, { memberId: prev.addMemberId, no: prev.addNo, type, aspect }]
-      };
+      toast({ title: `${items.length}枚を生成しました`, type: 'success' });
+      return { ...prev, items };
     });
-    if (input) input.value = '';
+    setSelected(new Set());
   };
 
-  const removeItem = (index: number) =>
-    setForm((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
+  const addRows = (n: number) => {
+    setItems((items) => [
+      ...items,
+      ...Array.from({ length: n }, () => ({
+        memberId: null,
+        no: items.length + 1,
+        size: form.seedL ? 'L' : form.seed2L ? '2L' : null,
+        aspect: DEFAULT_BROMIDE_ASPECT
+      }))
+    ]);
+  };
 
-  const addRange = () => {
+  const sortItems = (key: 'member' | 'no' | 'size') => {
     setForm((prev) => {
-      const from = Math.min(prev.bulkFrom, prev.bulkTo);
-      const to = Math.max(prev.bulkFrom, prev.bulkTo);
-      const existing = new Set(prev.items.map((it) => `${it.memberId ?? GROUP_VALUE}:${it.no}`));
-      const added: BromideSpec[] = [];
-      for (let no = from; no <= to; no += 1) {
-        const key = `${prev.addMemberId ?? GROUP_VALUE}:${no}`;
-        if (existing.has(key)) continue;
-        existing.add(key);
-        added.push({ memberId: prev.addMemberId, no });
-      }
-      if (added.length === 0) {
-        toast({ title: 'その範囲はすべて追加済みです', type: 'error' });
-        return prev;
-      }
-      toast({ title: `${added.length}枚を追加しました`, type: 'success' });
-      return { ...prev, items: [...prev.items, ...added] };
+      const dir: 1 | -1 = sort?.key === key && sort.dir === 1 ? -1 : 1;
+      setSort({ key, dir });
+      const rank = (it: BromideSpec): number | string => {
+        if (key === 'member') return it.memberId ? (memberOrder.get(it.memberId) ?? 999) : 1000;
+        if (key === 'size') return it.size === 'L' ? 0 : it.size === '2L' ? 1 : 2;
+        return it.no;
+      };
+      const items = [...prev.items].sort((a, b) => {
+        const ra = rank(a);
+        const rb = rank(b);
+        if (ra < rb) return -1 * dir;
+        if (ra > rb) return 1 * dir;
+        return (a.no - b.no) * dir;
+      });
+      return { ...prev, items };
     });
+    setSelected(new Set());
   };
 
-  const seedCount = useMemo(() => {
-    const sizeCount = Math.max(1, parseSizes(form.sizes).length);
-    if (form.kind === 'mixed') return form.items.length * sizeCount;
-    if (form.kind === 'flat') return form.count * sizeCount;
-    return selectedMembers.length * form.count * sizeCount;
-  }, [form.kind, form.items.length, form.sizes, form.count, selectedMembers.length]);
+  const reorder = (from: number, to: number) => {
+    if (from === to) return;
+    setItems((items) => {
+      const next = [...items];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    setSelected(new Set());
+  };
 
-  const seedSummary = useMemo(() => {
-    const sizes = parseSizes(form.sizes);
-    const sizePart = sizes.length > 0 ? ` × ${sizes.length}サイズ` : '';
-    if (form.kind === 'mixed') return `${form.items.length}点${sizePart} = ${seedCount}枚`;
-    if (form.kind === 'flat') return `${form.count}番号${sizePart} = ${seedCount}枚`;
-    return `${selectedMembers.length}人 × ${form.count}番号${sizePart} = ${seedCount}枚`;
-  }, [form.kind, form.items.length, form.sizes, form.count, selectedMembers.length, seedCount]);
+  const toggleSelect = (index: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
 
-  const canSave =
-    form.title.trim().length > 0 &&
-    (form.kind === 'mixed'
-      ? form.items.length > 0
-      : form.count >= 1 && (form.kind === 'flat' || selectedMembers.length > 0));
+  const toggleSelectAll = () =>
+    setSelected((prev) =>
+      prev.size === form.items.length ? new Set() : new Set(form.items.map((_, i) => i))
+    );
+
+  const applyToSelected = (p: Partial<BromideSpec>) => {
+    if (selected.size === 0) return;
+    setItems((items) => items.map((it, i) => (selected.has(i) ? { ...it, ...p } : it)));
+  };
+
+  const deleteSelected = () => {
+    if (selected.size === 0) return;
+    setItems((items) => items.filter((_, i) => !selected.has(i)));
+    setSelected(new Set());
+  };
+
+  const [bulkMemberOpen, setBulkMemberOpen] = useState(false);
+
+  const canSave = form.title.trim().length > 0 && form.items.length > 0;
 
   const commitSave = (collection: Collection) => {
     catalogActions.upsertCollection(collection);
@@ -318,45 +376,34 @@ export function CollectionEditor({
 
   const save = () => {
     if (!canSave) return;
-    const sizes = parseSizes(form.sizes);
-    const aspect = parseAspect(form.aspectText);
-    const base = {
-      id: editing?.id ?? `${slugify(form.title)}-${Date.now().toString(36)}`,
+    const id = editing?.id ?? `${slugify(form.title)}-${Date.now().toString(36)}`;
+    const items = form.items.map((it) => ({
+      memberId: it.memberId,
+      no: it.no,
+      size: it.size ?? null,
+      aspect: it.aspect
+    }));
+    const slots = buildSlotsFromItems(id, items, editing);
+    const memberIds = unique(items.map((it) => it.memberId).filter((m): m is string => Boolean(m)));
+    const numbers = [...new Set(items.map((it) => it.no))].sort((a, b) => a - b);
+    const sizes = unique(items.map((it) => it.size).filter((s): s is string => Boolean(s)));
+    const collection: Collection = {
+      id,
       title: form.title.trim(),
       description: form.description.trim() || undefined,
       releaseDate: form.releaseDate || undefined,
+      kind: form.kind,
+      memberIds,
+      numbers,
       sizes: sizes.length > 0 ? sizes : undefined,
+      items,
+      slots,
       createdAt: editing?.createdAt ?? new Date().toISOString()
-    };
-    const collectionWithoutSlots: Collection =
-      form.kind === 'mixed'
-        ? {
-            ...base,
-            kind: 'mixed',
-            memberIds: [],
-            numbers: [],
-            items: form.items.map((it) => ({
-              memberId: it.memberId,
-              no: it.no,
-              type: it.type,
-              label: it.label,
-              aspect: it.aspect
-            }))
-          }
-        : {
-            ...base,
-            kind: form.kind,
-            memberIds: form.kind === 'flat' ? [] : selectedMembers.map((m) => m.id),
-            numbers: Array.from({ length: form.count }, (_, i) => i + 1)
-          };
-    const collection: Collection = {
-      ...collectionWithoutSlots,
-      slots: buildStableSlots(collectionWithoutSlots, editing, aspect)
     };
     const orphaned = editing
       ? orphanedImageCount(
           catalog.bromides.filter((b) => b.collectionId === editing.id),
-          collection.slots ?? []
+          slots
         )
       : 0;
     if (orphaned > 0) {
@@ -403,16 +450,14 @@ export function CollectionEditor({
       </HStack>
 
       <Box borderColor="board.border" borderRadius="lg" borderWidth="1px" overflowX="auto">
-        <Table.Root minW="840px">
+        <Table.Root minW="760px">
           <Table.Head>
             <Table.Row>
               <Table.Header>タイトル</Table.Header>
-              <Table.Header>種別</Table.Header>
               <Table.Header>発売日</Table.Header>
               <Table.Header>対象</Table.Header>
               <Table.Header>番号/点数</Table.Header>
               <Table.Header>サイズ</Table.Header>
-              <Table.Header>比率</Table.Header>
               <Table.Header>総枚数</Table.Header>
               <Table.Header>状態</Table.Header>
               <Table.Header textAlign="right">操作</Table.Header>
@@ -438,17 +483,6 @@ export function CollectionEditor({
                     </Stack>
                   </Table.Cell>
                   <Table.Cell>
-                    <Badge
-                      size="sm"
-                      variant="subtle"
-                      colorPalette={
-                        c.kind === 'member_grid' ? 'pink' : c.kind === 'mixed' ? 'red' : 'gray'
-                      }
-                    >
-                      {kindLabel(c.kind)}
-                    </Badge>
-                  </Table.Cell>
-                  <Table.Cell>
                     <Text color="fg.muted" fontSize="sm" whiteSpace="nowrap">
                       {formatReleaseDate(c.releaseDate) ?? '未設定'}
                     </Text>
@@ -466,11 +500,6 @@ export function CollectionEditor({
                   <Table.Cell>
                     <Text color="fg.muted" fontSize="sm" whiteSpace="nowrap">
                       {c.sizes?.length ? c.sizes.join(', ') : 'なし'}
-                    </Text>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Text color="fg.muted" fontSize="sm" whiteSpace="nowrap">
-                      {formatAspect(c.slots?.find((slot) => slot.aspect)?.aspect) || '3/4'}
                     </Text>
                   </Table.Cell>
                   <Table.Cell>
@@ -532,42 +561,6 @@ export function CollectionEditor({
               </HStack>
 
               <Stack gap="1.5">
-                <FieldLabel>種類を選ぶ</FieldLabel>
-                <Grid gap="2" columns={{ base: 1, sm: 3 }}>
-                  {TEMPLATES.map((t) => {
-                    const active = form.kind === t.value;
-                    return (
-                      <Stack
-                        as="button"
-                        key={t.value}
-                        onClick={() => patch({ kind: t.value })}
-                        cursor="pointer"
-                        gap="0.5"
-                        borderColor={active ? 'accent.default' : 'board.border'}
-                        borderRadius="lg"
-                        borderWidth="1px"
-                        p="2.5"
-                        textAlign="left"
-                        bgColor={active ? 'accent.subtle' : 'board.panel'}
-                        transition="all 0.12s"
-                        _hover={{ borderColor: 'accent.default' }}
-                      >
-                        <Text fontSize="sm" fontWeight="bold">
-                          {t.label}
-                        </Text>
-                        <Text color="fg.muted" fontSize="2xs" lineHeight="1.3">
-                          {t.hint}
-                        </Text>
-                        <Text color="fg.subtle" fontSize="2xs">
-                          {t.example}
-                        </Text>
-                      </Stack>
-                    );
-                  })}
-                </Grid>
-              </Stack>
-
-              <Stack gap="1.5">
                 <FieldLabel>タイトル</FieldLabel>
                 <Input
                   value={form.title}
@@ -601,331 +594,460 @@ export function CollectionEditor({
                     onChange={(e) => patch({ releaseDate: e.target.value })}
                   />
                 </Stack>
-                {form.kind === 'mixed' ? null : (
-                  <Stack gap="1.5">
-                    <FieldLabel>種類数</FieldLabel>
-                    <NumberInput
-                      value={String(form.count)}
-                      min={1}
-                      max={99}
-                      onValueChange={(e) =>
-                        patch({ count: Math.max(1, Math.round(e.valueAsNumber || 1)) })
-                      }
-                    />
-                  </Stack>
-                )}
               </Grid>
 
-              <Stack gap="1.5">
-                <FieldLabel>サイズ（カンマ区切り・空欄で無し）</FieldLabel>
-                <Input
-                  value={form.sizes}
-                  onChange={(e) => patch({ sizes: e.target.value })}
-                  placeholder="L, 2L"
-                />
-              </Stack>
-
-              <HStack
-                gap="2"
-                justifyContent="space-between"
-                borderColor="accent.default"
-                borderRadius="lg"
+              <Stack
+                gap="0"
+                borderColor="board.border"
+                borderRadius="xl"
                 borderWidth="1px"
-                py="2"
-                px="3"
-                bgColor="accent.subtle"
+                overflow="hidden"
               >
-                <Text color="fg.muted" fontSize="xs">
-                  生成される枚数
+                <Text px="3" pt="2.5" color="fg.muted" fontSize="xs" fontWeight="bold">
+                  アイテムを生成・編集
                 </Text>
-                <Text fontSize="sm" fontWeight="bold" fontVariantNumeric="tabular-nums">
-                  {seedSummary}
-                </Text>
-              </HStack>
 
-              {form.kind === 'mixed' ? null : (
-                <Stack gap="1.5">
-                  <FieldLabel>画像比率（空欄で 3/4）</FieldLabel>
-                  <Input
-                    value={form.aspectText}
-                    onChange={(e) => patch({ aspectText: e.target.value })}
-                    placeholder="3/4, 4/3, 1, 16/9"
-                  />
-                </Stack>
-              )}
-
-              {form.kind === 'member_grid' ? (
-                <Stack gap="1.5">
-                  <FieldLabel>対象メンバー</FieldLabel>
-                  <Wrap gap="1.5">
-                    {catalog.members.map((m) => {
-                      const active = form.memberIds.has(m.id);
-                      return (
-                        <HStack
-                          as="button"
-                          key={m.id}
-                          onClick={() => toggleMember(m.id)}
-                          style={
-                            active
-                              ? { backgroundColor: m.color, borderColor: m.color, color: '#ffffff' }
-                              : undefined
-                          }
-                          cursor="pointer"
-                          gap="1.5"
-                          borderColor={active ? undefined : 'board.border'}
-                          borderRadius="full"
-                          borderWidth="1px"
-                          py="1"
-                          px="2.5"
-                          bgColor={active ? undefined : 'board.panel'}
-                          opacity={active ? 1 : 0.65}
-                          transition="all 0.12s"
-                          _hover={{ opacity: 1 }}
-                        >
-                          {active ? (
-                            <FaCheck size={9} />
-                          ) : (
-                            <Box
-                              style={{ backgroundColor: m.color }}
-                              borderRadius="full"
-                              w="2.5"
-                              h="2.5"
-                            />
-                          )}
-                          <Text fontSize="xs" fontWeight="medium">
-                            {m.name}
-                          </Text>
-                        </HStack>
-                      );
-                    })}
-                  </Wrap>
-                </Stack>
-              ) : null}
-
-              {form.kind === 'mixed' ? (
-                <Stack gap="2.5">
-                  <FieldLabel>画像リスト</FieldLabel>
-                  <Wrap gap="1.5">
-                    {catalog.members.map((m) => {
-                      const active = form.addMemberId === m.id;
-                      return (
-                        <HStack
-                          as="button"
-                          key={m.id}
-                          onClick={() => patch({ addMemberId: m.id })}
-                          style={
-                            active
-                              ? { backgroundColor: m.color, borderColor: m.color, color: '#ffffff' }
-                              : undefined
-                          }
-                          cursor="pointer"
-                          gap="1.5"
-                          borderColor={active ? undefined : 'board.border'}
-                          borderRadius="full"
-                          borderWidth="1px"
-                          py="1"
-                          px="2.5"
-                          bgColor={active ? undefined : 'board.panel'}
-                          opacity={active ? 1 : 0.65}
-                          transition="all 0.12s"
-                          _hover={{ opacity: 1 }}
-                        >
-                          <Box
-                            style={{ backgroundColor: m.color }}
-                            borderRadius="full"
-                            w="2.5"
-                            h="2.5"
-                          />
-                          <Text fontSize="xs" fontWeight="medium">
-                            {m.name}
-                          </Text>
-                        </HStack>
-                      );
-                    })}
-                    <HStack
-                      as="button"
-                      onClick={() => patch({ addMemberId: null })}
-                      style={
-                        form.addMemberId === null
-                          ? { backgroundColor: '#FF5FA2', borderColor: '#FF5FA2', color: '#ffffff' }
-                          : undefined
-                      }
-                      cursor="pointer"
-                      gap="1.5"
-                      borderColor={form.addMemberId === null ? undefined : 'board.border'}
-                      borderRadius="full"
-                      borderWidth="1px"
-                      py="1"
-                      px="2.5"
-                      bgColor={form.addMemberId === null ? undefined : 'board.panel'}
-                      opacity={form.addMemberId === null ? 1 : 0.65}
-                      transition="all 0.12s"
-                      _hover={{ opacity: 1 }}
+                <Stack gap="2.5" p="3">
+                  <HStack gap="2" alignItems="center" flexWrap="wrap">
+                    <styled.span
+                      flex="none"
+                      w="20"
+                      color="fg.muted"
+                      fontSize="xs"
+                      fontWeight="bold"
                     >
-                      <Text fontSize="xs" fontWeight="medium">
-                        集合
-                      </Text>
-                    </HStack>
-                  </Wrap>
-                  <Stack
-                    gap="1.5"
-                    borderColor="board.border"
-                    borderRadius="lg"
-                    borderWidth="1px"
-                    p="2.5"
-                    bgColor="board.panel"
-                  >
-                    <FieldLabel>番号で一括追加</FieldLabel>
-                    <HStack gap="2" alignItems="end" flexWrap="wrap">
-                      <Stack flex="1" gap="1" minW="20">
-                        <Text color="fg.subtle" fontSize="2xs">
-                          開始
-                        </Text>
-                        <NumberInput
-                          value={String(form.bulkFrom)}
-                          min={1}
-                          max={199}
-                          onValueChange={(e) =>
-                            patch({ bulkFrom: Math.max(1, Math.round(e.valueAsNumber || 1)) })
-                          }
-                        />
-                      </Stack>
-                      <Stack flex="1" gap="1" minW="20">
-                        <Text color="fg.subtle" fontSize="2xs">
-                          終了
-                        </Text>
-                        <NumberInput
-                          value={String(form.bulkTo)}
-                          min={1}
-                          max={199}
-                          onValueChange={(e) =>
-                            patch({ bulkTo: Math.max(1, Math.round(e.valueAsNumber || 1)) })
-                          }
-                        />
-                      </Stack>
-                      <Button
-                        type="button"
-                        variant="solid"
-                        onClick={addRange}
-                        colorPalette="accent"
-                      >
-                        <FaPlus />
-                        番号をまとめて追加
-                      </Button>
-                    </HStack>
-                    <Text color="fg.subtle" fontSize="2xs">
-                      上で選んだメンバーに、開始〜終了の番号をまとめて追加します
-                    </Text>
-                  </Stack>
-
-                  <HStack gap="2" alignItems="end">
-                    <Stack flex="1" gap="1.5">
-                      <FieldLabel>管理番号</FieldLabel>
-                      <NumberInput
-                        value={String(form.addNo)}
-                        min={1}
-                        max={99}
-                        onValueChange={(e) =>
-                          patch({ addNo: Math.max(1, Math.round(e.valueAsNumber || 1)) })
-                        }
-                      />
-                    </Stack>
-                    <Stack flex="2" gap="1.5">
-                      <FieldLabel>タイプ / タグ</FieldLabel>
-                      <styled.input
-                        data-add-type-input
-                        placeholder="A, 引き, レア"
-                        borderColor="border.default"
-                        borderRadius="l2"
-                        borderWidth="1px"
-                        h="10"
-                        px="3"
-                        color="fg.default"
-                        fontSize="sm"
-                        bgColor="bg.default"
-                      />
-                    </Stack>
-                    <Stack flex="1" gap="1.5">
-                      <FieldLabel>画像比率</FieldLabel>
-                      <Input
-                        value={form.addAspectText}
-                        onChange={(e) => patch({ addAspectText: e.target.value })}
-                        placeholder="4/3"
-                      />
-                    </Stack>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        addItem();
-                      }}
-                    >
-                      <FaPlus />
-                      追加
-                    </Button>
+                      プリセット
+                    </styled.span>
+                    <Segment
+                      options={PRESETS}
+                      value={form.kind}
+                      onChange={(kind) => patch({ kind })}
+                    />
                   </HStack>
 
-                  {form.items.length > 0 ? (
-                    <Stack gap="1.5">
-                      {form.items.map((it, i) => {
-                        const m = it.memberId
-                          ? catalog.members.find((x) => x.id === it.memberId)
-                          : undefined;
-                        const color = m?.color ?? '#FF5FA2';
-                        return (
-                          <HStack
-                            key={`${it.memberId ?? GROUP_VALUE}:${it.no}`}
-                            gap="2"
+                  {form.kind === 'member_grid' ? (
+                    <HStack gap="2" alignItems="flex-start" flexWrap="wrap">
+                      <styled.span
+                        flex="none"
+                        w="20"
+                        pt="1"
+                        color="fg.muted"
+                        fontSize="xs"
+                        fontWeight="bold"
+                      >
+                        対象メンバー
+                      </styled.span>
+                      <Wrap flex="1" gap="1.5">
+                        {catalog.members.map((m) => {
+                          const on = form.memberIds.has(m.id);
+                          return (
+                            <HStack
+                              as="button"
+                              key={m.id}
+                              onClick={() => toggleSeedMember(m.id)}
+                              cursor="pointer"
+                              gap="1.5"
+                              borderColor={on ? 'accent.default' : 'board.border'}
+                              borderRadius="full"
+                              borderWidth="1px"
+                              py="1"
+                              px="2.5"
+                              bgColor="board.panel"
+                              opacity={on ? 1 : 0.45}
+                              transition="all 0.12s"
+                              _hover={{ opacity: 1 }}
+                            >
+                              <Box
+                                style={{ backgroundColor: m.color }}
+                                flexShrink="0"
+                                borderRadius="full"
+                                w="2"
+                                h="2"
+                              />
+                              <Text fontSize="xs" fontWeight="medium">
+                                {m.name}
+                              </Text>
+                            </HStack>
+                          );
+                        })}
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() =>
+                            patch({
+                              memberIds:
+                                form.memberIds.size === catalog.members.length
+                                  ? new Set()
+                                  : new Set(catalog.members.map((m) => m.id))
+                            })
+                          }
+                        >
+                          {form.memberIds.size === catalog.members.length ? '全解除' : '全選択'}
+                        </Button>
+                      </Wrap>
+                    </HStack>
+                  ) : null}
+
+                  <HStack gap="2" alignItems="center" flexWrap="wrap">
+                    <styled.span
+                      flex="none"
+                      w="20"
+                      color="fg.muted"
+                      fontSize="xs"
+                      fontWeight="bold"
+                    >
+                      生成
+                    </styled.span>
+                    <Text color="fg.subtle" fontSize="xs">
+                      番号数
+                    </Text>
+                    <Box w="20">
+                      <NumberInput
+                        value={String(form.count)}
+                        min={1}
+                        max={199}
+                        onValueChange={(e) =>
+                          patch({ count: Math.max(1, Math.round(e.valueAsNumber || 1)) })
+                        }
+                      />
+                    </Box>
+                    <Text color="fg.subtle" fontSize="xs">
+                      サイズ
+                    </Text>
+                    <Toggle
+                      options={[
+                        { value: 'L', label: 'L', on: form.seedL },
+                        { value: '2L', label: '2L', on: form.seed2L }
+                      ]}
+                      onToggle={(v) =>
+                        v === 'L' ? patch({ seedL: !form.seedL }) : patch({ seed2L: !form.seed2L })
+                      }
+                    />
+                    <Text color="fg.subtle" fontSize="xs">
+                      向き
+                    </Text>
+                    <Toggle
+                      single
+                      orientation
+                      options={[
+                        { value: 'p', label: '縦', on: !form.seedLandscape },
+                        { value: 'l', label: '横', on: form.seedLandscape }
+                      ]}
+                      onToggle={(v) => patch({ seedLandscape: v === 'l' })}
+                    />
+                    <Button size="sm" onClick={seedGrid} colorPalette="accent" ml="auto">
+                      グリッドを生成
+                    </Button>
+                  </HStack>
+                </Stack>
+
+                <Text px="3" pb="2.5" color="fg.subtle" fontSize="2xs">
+                  「番号だけ / 自由」+ 番号41 → 41枚を一発生成（空アイテムもOK）。
+                </Text>
+
+                <HStack
+                  gap="2"
+                  alignItems="center"
+                  borderColor="board.border"
+                  borderTopWidth="1px"
+                  py="2"
+                  px="3"
+                  flexWrap="wrap"
+                >
+                  <Button size="xs" variant="outline" onClick={() => addRows(10)}>
+                    ＋10行
+                  </Button>
+                  <Box w="1px" h="4" bgColor="board.border" />
+                  {selected.size > 0 ? (
+                    <>
+                      <Text color="accent.text" fontSize="xs" fontWeight="bold">
+                        {selected.size}件選択中
+                      </Text>
+                      <Box position="relative">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() => setBulkMemberOpen((v) => !v)}
+                        >
+                          メンバー一括 ▾
+                        </Button>
+                        {bulkMemberOpen ? (
+                          <Stack
+                            zIndex="10"
+                            position="absolute"
+                            top="full"
+                            left="0"
+                            gap="0.5"
                             borderColor="board.border"
                             borderRadius="lg"
                             borderWidth="1px"
-                            py="1.5"
-                            px="2.5"
-                            bgColor="board.panel"
+                            minW="36"
+                            maxH="56"
+                            mt="1"
+                            p="1"
+                            bgColor="bg.default"
+                            boxShadow="lg"
+                            overflowY="auto"
                           >
-                            <Box
-                              style={{ backgroundColor: color }}
-                              flexShrink="0"
-                              borderRadius="full"
-                              w="2.5"
-                              h="2.5"
-                            />
-                            <Text flex="1" fontSize="sm" fontWeight="medium" truncate>
-                              {m ? m.name : '集合'}
-                            </Text>
-                            <Text color="fg.muted" fontSize="xs" fontWeight="bold">
-                              {it.type ?? `No.${it.no}`}
-                            </Text>
-                            {it.aspect ? (
-                              <Badge size="sm" variant="subtle" colorPalette="gray">
-                                {formatAspect(it.aspect)}
-                              </Badge>
-                            ) : null}
-                            <Box
-                              as="button"
-                              aria-label="削除"
-                              onClick={() => removeItem(i)}
-                              cursor="pointer"
-                              display="flex"
-                              alignItems="center"
-                              color="fg.muted"
-                              _hover={{ color: 'red.10' }}
-                            >
-                              <FaXmark size={12} />
-                            </Box>
-                          </HStack>
-                        );
-                      })}
-                    </Stack>
+                            {[...catalog.members, null].map((m) => {
+                              const memberId = m?.id ?? null;
+                              return (
+                                <HStack
+                                  as="button"
+                                  key={memberId ?? GROUP_VALUE}
+                                  onClick={() => {
+                                    applyToSelected({ memberId });
+                                    setBulkMemberOpen(false);
+                                  }}
+                                  cursor="pointer"
+                                  gap="1.5"
+                                  borderRadius="md"
+                                  py="1"
+                                  px="2"
+                                  _hover={{ bgColor: 'bg.muted' }}
+                                >
+                                  <Box
+                                    style={{ backgroundColor: m?.color ?? '#cbd5e1' }}
+                                    flexShrink="0"
+                                    borderRadius="full"
+                                    w="2"
+                                    h="2"
+                                  />
+                                  <Text fontSize="xs">{m ? m.name : '集合'}</Text>
+                                </HStack>
+                              );
+                            })}
+                          </Stack>
+                        ) : null}
+                      </Box>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() => applyToSelected({ size: 'L' })}
+                      >
+                        サイズ L
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() => applyToSelected({ size: '2L' })}
+                      >
+                        サイズ 2L
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() => applyToSelected({ aspect: DEFAULT_BROMIDE_ASPECT })}
+                      >
+                        向き 縦
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() => applyToSelected({ aspect: LANDSCAPE_ASPECT })}
+                      >
+                        向き 横
+                      </Button>
+                      <Button size="xs" variant="ghost" onClick={deleteSelected} colorPalette="red">
+                        選択を削除
+                      </Button>
+                    </>
                   ) : (
                     <Text color="fg.subtle" fontSize="xs">
-                      メンバータグとタイプを選び、必要なら管理番号で区別してください
+                      行を選択すると一括操作できます
                     </Text>
                   )}
-                </Stack>
-              ) : null}
+                  <Text ml="auto" color="fg.muted" fontSize="xs">
+                    全{' '}
+                    <styled.b color="fg.default" fontVariantNumeric="tabular-nums">
+                      {form.items.length}
+                    </styled.b>{' '}
+                    枚
+                  </Text>
+                </HStack>
+
+                <Box borderColor="board.border" borderTopWidth="1px" maxH="280px" overflow="auto">
+                  <Table.Root size="sm">
+                    <Table.Head>
+                      <Table.Row>
+                        <Table.Header w="9" textAlign="center">
+                          <styled.input
+                            type="checkbox"
+                            checked={form.items.length > 0 && selected.size === form.items.length}
+                            onChange={toggleSelectAll}
+                            cursor="pointer"
+                          />
+                        </Table.Header>
+                        <Table.Header w="7" />
+                        <SortHeader
+                          label="メンバー"
+                          active={sort?.key === 'member'}
+                          onClick={() => sortItems('member')}
+                        />
+                        <SortHeader
+                          label="番号"
+                          active={sort?.key === 'no'}
+                          onClick={() => sortItems('no')}
+                          w="20"
+                        />
+                        <SortHeader
+                          label="サイズ"
+                          active={sort?.key === 'size'}
+                          onClick={() => sortItems('size')}
+                          w="24"
+                        />
+                        <Table.Header w="28">向き</Table.Header>
+                        <Table.Header w="9" />
+                      </Table.Row>
+                    </Table.Head>
+                    <Table.Body>
+                      {form.items.map((it, i) => {
+                        const member = it.memberId ? memberById.get(it.memberId) : undefined;
+                        const sel = selected.has(i);
+                        return (
+                          <Table.Row
+                            key={`${it.memberId ?? GROUP_VALUE}:${it.no}:${it.size ?? ''}:${i}`}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={() => {
+                              if (dragIndex.current !== null) reorder(dragIndex.current, i);
+                              dragIndex.current = null;
+                            }}
+                            bgColor={sel ? 'accent.subtle' : undefined}
+                          >
+                            <Table.Cell textAlign="center">
+                              <styled.input
+                                type="checkbox"
+                                checked={sel}
+                                onChange={() => toggleSelect(i)}
+                                cursor="pointer"
+                              />
+                            </Table.Cell>
+                            <Table.Cell
+                              draggable
+                              onDragStart={() => {
+                                dragIndex.current = i;
+                              }}
+                              onDragEnd={() => {
+                                dragIndex.current = null;
+                              }}
+                              cursor="grab"
+                              color="fg.subtle"
+                              textAlign="center"
+                            >
+                              ⋮⋮
+                            </Table.Cell>
+                            <Table.Cell>
+                              <HStack gap="1.5" alignItems="center">
+                                <Box
+                                  style={{ backgroundColor: member?.color ?? '#cbd5e1' }}
+                                  flexShrink="0"
+                                  borderRadius="full"
+                                  w="2"
+                                  h="2"
+                                />
+                                <styled.select
+                                  value={it.memberId ?? GROUP_VALUE}
+                                  onChange={(e) =>
+                                    updateItem(i, {
+                                      memberId:
+                                        e.target.value === GROUP_VALUE ? null : e.target.value
+                                    })
+                                  }
+                                  cursor="pointer"
+                                  border="none"
+                                  outline="none"
+                                  w="full"
+                                  color="fg.default"
+                                  fontSize="xs"
+                                  bgColor="transparent"
+                                >
+                                  <option value={GROUP_VALUE}>集合</option>
+                                  {catalog.members.map((m) => (
+                                    <option key={m.id} value={m.id}>
+                                      {m.name}
+                                    </option>
+                                  ))}
+                                </styled.select>
+                              </HStack>
+                            </Table.Cell>
+                            <Table.Cell>
+                              <styled.input
+                                type="number"
+                                min={1}
+                                value={it.no}
+                                onChange={(e) =>
+                                  updateItem(i, {
+                                    no: Math.max(1, Math.round(Number(e.target.value) || 1))
+                                  })
+                                }
+                                outline="none"
+                                borderColor="border.default"
+                                borderRadius="md"
+                                borderWidth="1px"
+                                w="14"
+                                py="1"
+                                px="2"
+                                color="fg.default"
+                                fontSize="xs"
+                                fontVariantNumeric="tabular-nums"
+                                textAlign="right"
+                                bgColor="bg.default"
+                                _focus={{ borderColor: 'accent.default' }}
+                              />
+                            </Table.Cell>
+                            <Table.Cell>
+                              <Toggle
+                                options={[
+                                  { value: 'L', label: 'L', on: it.size === 'L' },
+                                  { value: '2L', label: '2L', on: it.size === '2L' }
+                                ]}
+                                onToggle={(v) => updateItem(i, { size: it.size === v ? null : v })}
+                              />
+                            </Table.Cell>
+                            <Table.Cell>
+                              <Toggle
+                                single
+                                orientation
+                                options={[
+                                  { value: 'p', label: '縦', on: !isLandscape(it.aspect) },
+                                  { value: 'l', label: '横', on: isLandscape(it.aspect) }
+                                ]}
+                                onToggle={(v) =>
+                                  updateItem(i, {
+                                    aspect: v === 'l' ? LANDSCAPE_ASPECT : DEFAULT_BROMIDE_ASPECT
+                                  })
+                                }
+                              />
+                            </Table.Cell>
+                            <Table.Cell textAlign="center">
+                              <styled.button
+                                type="button"
+                                aria-label="削除"
+                                onClick={() => removeItem(i)}
+                                cursor="pointer"
+                                color="fg.subtle"
+                                fontSize="xs"
+                                _hover={{ color: 'red.10' }}
+                              >
+                                ✕
+                              </styled.button>
+                            </Table.Cell>
+                          </Table.Row>
+                        );
+                      })}
+                      {form.items.length === 0 ? (
+                        <Table.Row>
+                          <Table.Cell colSpan={7}>
+                            <Text py="4" color="fg.subtle" fontSize="xs" textAlign="center">
+                              「グリッドを生成」または「＋10行」でアイテムを作成してください
+                            </Text>
+                          </Table.Cell>
+                        </Table.Row>
+                      ) : null}
+                    </Table.Body>
+                  </Table.Root>
+                </Box>
+              </Stack>
 
               <Button type="button" onClick={save} disabled={!canSave}>
                 {editing ? <FaCheck /> : <FaPlus />}
@@ -1011,5 +1133,119 @@ export function CollectionEditor({
         </Dialog.Positioner>
       </Dialog.Root>
     </Stack>
+  );
+}
+
+function SortHeader({
+  label,
+  active,
+  onClick,
+  w
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  w?: string;
+}) {
+  return (
+    <Table.Header onClick={onClick} cursor="pointer" w={w} userSelect="none">
+      <HStack gap="1" alignItems="center">
+        <styled.span>{label}</styled.span>
+        <styled.span color={active ? 'accent.text' : 'fg.subtle'} fontSize="2xs">
+          ▲▼
+        </styled.span>
+      </HStack>
+    </Table.Header>
+  );
+}
+
+function Segment<T extends string>({
+  options,
+  value,
+  onChange
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <HStack
+      gap="0"
+      borderColor="board.border"
+      borderRadius="lg"
+      borderWidth="1px"
+      overflow="hidden"
+    >
+      {options.map((o, i) => {
+        const on = value === o.value;
+        return (
+          <styled.button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            cursor="pointer"
+            borderColor="board.border"
+            borderLeftWidth={i === 0 ? '0' : '1px'}
+            py="1.5"
+            px="3"
+            color={on ? 'accent.fg' : 'fg.muted'}
+            fontSize="xs"
+            fontWeight="bold"
+            bgColor={on ? 'accent.default' : 'bg.default'}
+            transition="background-color 0.12s, color 0.12s"
+            _hover={on ? undefined : { bgColor: 'bg.muted' }}
+          >
+            {o.label}
+          </styled.button>
+        );
+      })}
+    </HStack>
+  );
+}
+
+function Toggle({
+  options,
+  onToggle,
+  orientation,
+  single
+}: {
+  options: { value: string; label: string; on: boolean }[];
+  onToggle: (value: string) => void;
+  orientation?: boolean;
+  single?: boolean;
+}) {
+  return (
+    <HStack
+      gap="0"
+      borderColor="board.border"
+      borderRadius="md"
+      borderWidth="1px"
+      w="fit-content"
+      overflow="hidden"
+    >
+      {options.map((o, i) => (
+        <styled.button
+          key={o.value}
+          type="button"
+          onClick={() => {
+            if (single && o.on) return;
+            onToggle(o.value);
+          }}
+          cursor="pointer"
+          borderColor="board.border"
+          borderLeftWidth={i === 0 ? '0' : '1px'}
+          py="1"
+          px="2.5"
+          color={o.on ? (orientation ? 'accent.text' : 'fg.default') : 'fg.subtle'}
+          fontSize="xs"
+          fontWeight="bold"
+          bgColor={o.on ? (orientation ? 'accent.subtle' : 'bg.muted') : 'bg.default'}
+          transition="background-color 0.12s, color 0.12s"
+          _hover={o.on ? undefined : { bgColor: 'bg.muted' }}
+        >
+          {o.label}
+        </styled.button>
+      ))}
+    </HStack>
   );
 }
