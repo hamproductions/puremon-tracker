@@ -198,3 +198,36 @@ admin-created landscape slot aspect: 1.3333333333333333
 landscape detail tile: 582x437, ratio 1.33
 landscape upload target: 117x88, ratio 1.33
 ```
+
+## 2026-06-16 target-first upload flow evidence
+
+Implemented:
+
+- Upload setup is now target-first instead of file-first.
+- The modal opens directly to clickable target boxes; each target owns a real file input overlay.
+- Clicking or uploading into a target box queues exactly that bromide slot.
+- Bulk upload remains secondary through `複数枚を一括`.
+- User mode exposes only missing-image targets.
+- Admin mode exposes existing-image targets too, so admins can replace images directly.
+- The crop step still includes document trim, aspect controls, zoom, skip, and confirm.
+
+Verification:
+
+```text
+bun test src/components/photo/uploadTargets.test.ts src/components/photo/cropModes.test.ts src/utils/aspect.test.ts: pass
+bun run type-check: pass
+```
+
+Browser evidence captured through `agent-browser`:
+
+- `dogfood-output/upload-flow-2026-06-16/screenshots/modal-target-first.png`
+- `dogfood-output/upload-flow-2026-06-16/screenshots/crop-step-after-target-upload.png`
+- `dogfood-output/upload-flow-2026-06-16/videos/modal-target-click-to-crop.webm`
+
+Real browser findings:
+
+- Admin E2E profile opens the collection and upload modal at `http://127.0.0.1:3001/collections?c=floral&e2e_user=admin`.
+- The upload modal exposes per-slot file controls in the browser tree.
+- Uploading a real image file by absolute path into `菅原もも L 1の画像を選ぶ` transitions to the crop step.
+- Crop step renders `書類トリム`, portrait/landscape/square/free crop controls, zoom, skip, and confirm.
+- Confirm returned to the grid, but the E2E visible grid still showed the first slot missing. This specific local E2E admin persistence path is not proven yet and must be debugged before claiming the full upload feature complete.

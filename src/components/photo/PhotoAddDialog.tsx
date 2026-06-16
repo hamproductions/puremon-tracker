@@ -30,6 +30,7 @@ import { CROP_MODES, cropModeAspect, cropModeForAspect, type CropMode } from './
 import { getCroppedBlob } from './cropImage';
 import { bromideAspectRatio } from '~/utils/aspect';
 import { scanDocument } from './documentScanner';
+import { uploadTargetsForMode } from './uploadTargets';
 
 const Img = styled('img');
 
@@ -107,6 +108,10 @@ function PhotoAddBody({
     () => bromidesByCollection(catalog, collection.id, hasSizes ? size : undefined),
     [catalog, collection.id, hasSizes, size]
   );
+  const uploadTargets = useMemo(
+    () => uploadTargetsForMode(targets, { adminEdit }),
+    [adminEdit, targets]
+  );
 
   const [queue, setQueue] = useState<string[]>([]);
   const [touched, setTouched] = useState(false);
@@ -117,12 +122,12 @@ function PhotoAddBody({
 
   useEffect(() => {
     if (touched) return;
-    if (initialTargetId && targets.some((b) => b.id === initialTargetId)) {
+    if (initialTargetId && uploadTargets.some((b) => b.id === initialTargetId)) {
       setQueue([initialTargetId]);
       return;
     }
-    setQueue(targets.filter((b) => !b.imageUrl).map((b) => b.id));
-  }, [initialTargetId, targets, touched]);
+    setQueue(uploadTargets.map((b) => b.id));
+  }, [initialTargetId, touched, uploadTargets]);
 
   const targetById = useMemo(() => new Map(targets.map((b) => [b.id, b])), [targets]);
   const queueBromides = useMemo(
@@ -135,11 +140,10 @@ function PhotoAddBody({
   const [cropIndex, setCropIndex] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
   const [cropMode, setCropMode] = useState<CropMode>('portrait');
-  const firstTarget = queueBromides[0];
 
-  const toggleTarget = (id: string) => {
+  const selectQueue = (ids: string[]) => {
     setTouched(true);
-    setQueue((q) => (q.includes(id) ? q.filter((x) => x !== id) : [...q, id]));
+    setQueue(ids);
   };
 
   const resetAndClose = () => {
@@ -147,15 +151,21 @@ function PhotoAddBody({
     onOpenChange(false);
   };
 
-  const onFilesPicked = (files: FileList | File[]) => {
+  const onFilesPicked = (files: FileList | File[], targetIds?: string[]) => {
     const list = Array.from(files).filter(isImageFile);
     if (list.length === 0) return;
+    const nextQueue = targetIds ?? queue;
+    const firstPickedTarget = nextQueue[0] ? targetById.get(nextQueue[0]) : undefined;
+    if (targetIds) {
+      setTouched(true);
+      setQueue(targetIds);
+    }
     void Promise.all(list.map((f) => fileToDataUrl(f))).then((srcs) => {
       const next = srcs.map((src) => ({ id: crypto.randomUUID(), src }));
       setPicked(next);
       setCropIndex(0);
       setSavedCount(0);
-      setCropMode(cropModeForAspect(firstTarget?.aspect));
+      setCropMode(cropModeForAspect(firstPickedTarget?.aspect));
       setPhase('cropping');
     });
   };
@@ -203,10 +213,12 @@ function PhotoAddBody({
           size={size}
           setSize={setSize}
           targets={targets}
+          uploadTargets={uploadTargets}
           queue={queue}
+          setQueue={selectQueue}
           queueBromides={queueBromides}
-          toggleTarget={toggleTarget}
           onFilesPicked={onFilesPicked}
+          adminEdit={adminEdit}
         />
       )}
 
@@ -248,10 +260,12 @@ function SetupStep({
   size,
   setSize,
   targets,
+  uploadTargets,
   queue,
+  setQueue,
   queueBromides,
-  toggleTarget,
-  onFilesPicked
+  onFilesPicked,
+  adminEdit
 }: {
   catalog: Catalog;
   collection: Collection;
@@ -259,15 +273,27 @@ function SetupStep({
   size: string | null;
   setSize: (s: string | null) => void;
   targets: Bromide[];
+  uploadTargets: Bromide[];
   queue: string[];
+  setQueue: (ids: string[]) => void;
   queueBromides: Bromide[];
-  toggleTarget: (id: string) => void;
-  onFilesPicked: (files: FileList | File[]) => void;
+  onFilesPicked: (files: FileList | File[], targetIds?: string[]) => void;
+  adminEdit: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [dragOver, setDragOver] = useState(false);
+  const [fileInputMultiple, setFileInputMultiple] = useState(false);
+  const [dragTarget, setDragTarget] = useState<string | null>(null);
   const queueIndex = useMemo(() => new Map(queue.map((id, i) => [id, i])), [queue]);
-  const allFilled = targets.length > 0 && targets.every((b) => b.imageUrl);
+  const targetIdsRef = useRef<string[] | undefined>(undefined);
+  const bulkTargets = queueBromides.length > 0 ? queueBromides : uploadTargets;
+
+  const openPicker = (targetIds: string[], multiple: boolean) => {
+    if (targetIds.length === 0) return;
+    targetIdsRef.current = targetIds;
+    setFileInputMultiple(multiple);
+    if (inputRef.current) inputRef.current.multiple = multiple;
+    inputRef.current?.click();
+  };
 
   return (
     <Stack flex="1" gap="4" px="4" pb="4" overflowY="auto">
@@ -275,65 +301,37 @@ function SetupStep({
         ref={inputRef}
         type="file"
         accept="image/*"
-        multiple
+        multiple={fileInputMultiple}
         onChange={(e) => {
-          if (e.target.files) onFilesPicked(e.target.files);
+          if (e.target.files) onFilesPicked(e.target.files, targetIdsRef.current);
+          targetIdsRef.current = undefined;
           e.target.value = '';
         }}
         display="none"
       />
 
-      <Box
-        as="button"
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(e: React.DragEvent) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e: React.DragEvent) => {
-          e.preventDefault();
-          setDragOver(false);
-          if (e.dataTransfer.files?.length) onFilesPicked(e.dataTransfer.files);
-        }}
-        cursor="pointer"
-        display="flex"
-        gap="1.5"
-        flexDirection="column"
-        justifyContent="center"
-        alignItems="center"
-        borderColor={dragOver ? 'accent.default' : 'accent.default'}
-        borderRadius="xl"
-        borderWidth="2px"
-        w="full"
-        minH="160px"
-        py="7"
-        px="4"
-        textAlign="center"
-        bgColor={dragOver ? 'board.tile' : 'accent.subtle'}
-        transition="colors"
-        borderStyle="dashed"
-        _hover={{ borderColor: 'accent.default', bgColor: 'board.tile' }}
-      >
-        <Center borderRadius="full" w="11" h="11" color="accent.text" bgColor="board.tile">
-          <FaImage size={20} />
-        </Center>
-        <Text fontSize="md" fontWeight="bold">
-          写真を選ぶ
-        </Text>
-        <Text color="fg.muted" fontSize="xs">
-          先に写真を選択します。登録先は下で変更できます。
-        </Text>
-      </Box>
-
       <HStack gap="2" justifyContent="space-between" alignItems="center" flexWrap="wrap">
         <Text color="fg.muted" fontSize="xs">
           {queueBromides.length > 0
-            ? `最初の登録先: ${bromideLabel(catalog, queueBromides[0])}`
-            : '登録先を1枚以上選んでください'}
+            ? `一括対象: ${queueBromides.length}枚`
+            : adminEdit
+              ? '差し替える枠をクリックしてください'
+              : '画像募集中の枠をクリックしてください'}
         </Text>
-        <Button size="sm" onClick={() => inputRef.current?.click()} disabled={queue.length === 0}>
-          写真を選ぶ
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            openPicker(
+              bulkTargets.map((b) => b.id),
+              true
+            )
+          }
+          disabled={bulkTargets.length === 0}
+          colorPalette="gray"
+        >
+          <FaImage />
+          複数枚を一括
         </Button>
       </HStack>
 
@@ -363,10 +361,10 @@ function SetupStep({
       <Stack gap="2">
         <HStack justifyContent="space-between" alignItems="baseline">
           <Text color="fg.muted" fontSize="xs" fontWeight="bold">
-            登録先
+            クリックして画像を選ぶ
           </Text>
           <Text color="accent.text" fontSize="xs" fontWeight="bold">
-            登録先: {queue.length}枚
+            {adminEdit ? '既存画像も差替可' : `画像募集中: ${uploadTargets.length}枚`}
           </Text>
         </HStack>
 
@@ -374,28 +372,63 @@ function SetupStep({
           <Text color="fg.muted" fontSize="sm">
             このサイズには登録先がありません。
           </Text>
+        ) : uploadTargets.length === 0 ? (
+          <Box
+            borderColor="board.ownedBorder"
+            borderRadius="lg"
+            borderWidth="1px"
+            p="3"
+            bgColor="board.owned"
+          >
+            <Text fontSize="sm" fontWeight="medium">
+              このサイズの画像はすべて揃っています。
+            </Text>
+          </Box>
         ) : (
           <Grid gap="2" columns={{ base: 3, sm: 4, md: 5 }}>
-            {targets.map((b) => {
+            {uploadTargets.map((b) => {
               const order = queueIndex.get(b.id);
               const inQueue = order !== undefined;
               const color = memberColor(catalog, b.memberId);
               return (
                 <Box
-                  as="button"
+                  as="label"
                   key={b.id}
-                  onClick={() => toggleTarget(b.id)}
-                  style={{ borderColor: inQueue ? color : 'transparent' }}
+                  onDragOver={(e: React.DragEvent) => {
+                    e.preventDefault();
+                    setDragTarget(b.id);
+                  }}
+                  onDragLeave={() => setDragTarget((id) => (id === b.id ? null : id))}
+                  onDrop={(e: React.DragEvent) => {
+                    e.preventDefault();
+                    setDragTarget(null);
+                    if (e.dataTransfer.files?.length) onFilesPicked(e.dataTransfer.files, [b.id]);
+                  }}
+                  style={{ borderColor: dragTarget === b.id || inQueue ? color : 'transparent' }}
                   cursor="pointer"
                   position="relative"
                   borderRadius="lg"
                   borderWidth="1.5px"
                   p="1.5"
                   textAlign="left"
-                  bgColor="board.tile"
-                  opacity={inQueue ? 1 : 0.7}
+                  bgColor={dragTarget === b.id ? 'accent.subtle' : 'board.tile'}
+                  opacity={1}
                   _hover={{ opacity: 1 }}
                 >
+                  <styled.input
+                    type="file"
+                    accept="image/*"
+                    aria-label={`${bromideLabel(catalog, b)}の画像を選ぶ`}
+                    onChange={(e) => {
+                      if (e.target.files) onFilesPicked(e.target.files, [b.id]);
+                      e.target.value = '';
+                    }}
+                    cursor="pointer"
+                    zIndex="4"
+                    inset="0"
+                    position="absolute"
+                    opacity="0"
+                  />
                   <Box
                     style={{ aspectRatio: bromideAspectRatio(b) }}
                     position="relative"
@@ -442,6 +475,18 @@ function SetupStep({
                         {order + 1}
                       </Center>
                     )}
+                    <Center
+                      style={{ backgroundColor: 'rgba(0,0,0,0.54)' }}
+                      position="absolute"
+                      right="1"
+                      bottom="1"
+                      borderRadius="md"
+                      w="7"
+                      h="7"
+                      color="white"
+                    >
+                      <FaImage size={12} />
+                    </Center>
                   </Box>
                   <HStack gap="1" alignItems="center" minW="0" mt="1">
                     <Box
@@ -469,18 +514,30 @@ function SetupStep({
         )}
       </Stack>
 
-      {allFilled && queue.length === 0 && (
-        <Box
-          borderColor="board.ownedBorder"
-          borderRadius="lg"
-          borderWidth="1px"
-          p="3"
-          bgColor="board.owned"
-        >
-          <Text fontSize="sm" fontWeight="medium">
-            このサイズの登録先はすべて画像が揃っています。差し替えたい枚を上で選んでください。
-          </Text>
-        </Box>
+      {uploadTargets.length > 0 && (
+        <HStack gap="2" justifyContent="space-between" flexWrap="wrap">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              const missingIds = uploadTargets.filter((b) => !b.imageUrl).map((b) => b.id);
+              setQueue(missingIds);
+            }}
+            disabled={uploadTargets.every((b) => b.imageUrl)}
+          >
+            未登録だけを一括対象
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              const ids = uploadTargets.map((b) => b.id);
+              setQueue(ids);
+            }}
+          >
+            全枠を一括対象
+          </Button>
+        </HStack>
       )}
     </Stack>
   );
