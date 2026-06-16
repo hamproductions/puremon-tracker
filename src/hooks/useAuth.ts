@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { getSupabase, isSupabaseConfigured } from '~/lib/supabase';
 import { resolveProfile } from '~/lib/authProfile';
 import { clearE2EProfile, readE2EProfile } from '~/lib/e2eAuth';
+import { clearAnonymousOwnershipState } from '~/lib/localProductState';
 import type { Profile } from '~/types';
 import { toAppUrl } from '~/utils/url';
 
@@ -56,6 +57,7 @@ export function useProvideAuth(): AuthState {
 
   const signOut = async () => {
     clearE2EProfile();
+    clearAnonymousOwnershipState();
     const sb = getSupabase();
     await sb?.auth.signOut();
     setProfile(null);

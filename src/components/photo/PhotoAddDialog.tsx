@@ -319,6 +319,7 @@ function SetupStep({
               : '画像募集中の枠をクリックしてください'}
         </Text>
         <Button
+          type="button"
           size="sm"
           variant="outline"
           onClick={() =>
@@ -517,6 +518,7 @@ function SetupStep({
       {uploadTargets.length > 0 && (
         <HStack gap="2" justifyContent="space-between" flexWrap="wrap">
           <Button
+            type="button"
             size="sm"
             variant="ghost"
             onClick={() => {
@@ -528,6 +530,7 @@ function SetupStep({
             未登録だけを一括対象
           </Button>
           <Button
+            type="button"
             size="sm"
             variant="ghost"
             onClick={() => {
@@ -708,6 +711,7 @@ function CropStep({
           zoom={zoom}
         />
         <Button
+          type="button"
           size="sm"
           variant="solid"
           onClick={runScan}
@@ -736,7 +740,13 @@ function CropStep({
             <Text maxW="260px" color="fg.muted" fontSize="xs">
               写真の外枠を検出中…（初回は読み込みに時間がかかります）
             </Text>
-            <Button size="sm" variant="outline" onClick={cancelScan} colorPalette="gray">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={cancelScan}
+              colorPalette="gray"
+            >
               <FaXmark />
               キャンセル
             </Button>
@@ -807,6 +817,7 @@ function CropStep({
 
         <HStack gap="2" justifyContent="space-between" flexWrap="wrap">
           <Button
+            type="button"
             size="sm"
             variant="ghost"
             onClick={() => setCropIndex(Math.max(0, cropIndex - 1))}
@@ -817,6 +828,7 @@ function CropStep({
           </Button>
           <HStack gap="2">
             <Button
+              type="button"
               size="sm"
               variant="outline"
               onClick={() => advance(savedCount)}
@@ -827,6 +839,7 @@ function CropStep({
               スキップ
             </Button>
             <Button
+              type="button"
               size="sm"
               onClick={confirm}
               loading={busy}
@@ -902,10 +915,12 @@ function SummaryStep({
       )}
 
       <HStack gap="2" justifyContent="flex-end">
-        <Button variant="outline" onClick={onAddMore}>
+        <Button type="button" variant="outline" onClick={onAddMore}>
           続けて追加
         </Button>
-        <Button onClick={onClose}>完了</Button>
+        <Button type="button" onClick={onClose}>
+          完了
+        </Button>
       </HStack>
     </Stack>
   );

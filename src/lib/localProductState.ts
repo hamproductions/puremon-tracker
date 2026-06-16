@@ -13,7 +13,6 @@ const PRODUCT_KEYS = [
 export function clearProductLocalState() {
   if (typeof window === 'undefined') return;
   for (const key of PRODUCT_KEYS) window.localStorage.removeItem(key);
-  window.sessionStorage.removeItem('puremon:e2e-profile');
 }
 
 export function clearAnonymousOwnershipState() {
