@@ -3,16 +3,16 @@ import { Box, Center, Stack } from 'styled-system/jsx';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { Heading } from '~/components/ui/heading';
-import { Switch } from '~/components/ui/switch';
 import { Text } from '~/components/ui/text';
 import { useAuth } from '~/hooks/useAuth';
 
 export function AdminGate() {
-  const { isConfigured, profile, setLocalAdmin, signInWithTwitter } = useAuth();
+  const { isConfigured, profile, signInWithTwitter } = useAuth();
 
   let message = 'このページは管理者専用です。';
   if (isConfigured && profile && !profile.isAdmin) message = '管理者権限がありません';
   else if (isConfigured && !profile) message = 'ログインしてください';
+  else if (!isConfigured) message = 'Supabase設定が必要です';
 
   return (
     <Center py="10">
@@ -49,16 +49,9 @@ export function AdminGate() {
             ) : null}
 
             {!isConfigured ? (
-              <Box borderColor="board.border" borderTopWidth="1px" pt="4">
-                <Stack gap="2">
-                  <Switch onCheckedChange={(e) => setLocalAdmin(e.checked)}>
-                    ローカル管理モードを有効化
-                  </Switch>
-                  <Text color="fg.muted" fontSize="xs">
-                    この端末だけで、ログインなしにコレクションを管理できます。（開発用）
-                  </Text>
-                </Stack>
-              </Box>
+              <Text color="fg.muted" fontSize="sm" textAlign="center">
+                管理機能と画像投稿には Supabase の設定とログインが必要です。
+              </Text>
             ) : null}
           </Stack>
         </Card.Body>

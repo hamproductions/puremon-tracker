@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { getSupabase, isSupabaseConfigured } from '~/lib/supabase';
-import { localAdminStore, useStore } from '~/data/store';
 import { resolveProfile } from '~/lib/authProfile';
 import { clearE2EProfile, readE2EProfile } from '~/lib/e2eAuth';
 import type { Profile } from '~/types';
@@ -10,7 +9,6 @@ export function useAuth() {
   const initialE2EProfile = readE2EProfile();
   const [profile, setProfile] = useState<Profile | null>(initialE2EProfile);
   const [loading, setLoading] = useState(isSupabaseConfigured && !initialE2EProfile);
-  const localAdmin = useStore(localAdminStore);
 
   useEffect(() => {
     const e2eProfile = readE2EProfile();
@@ -52,14 +50,12 @@ export function useAuth() {
     setProfile(null);
   };
 
-  const isAdmin = Boolean(profile?.isAdmin) || (localAdmin && !isSupabaseConfigured);
+  const isAdmin = Boolean(profile?.isAdmin);
 
   return {
     profile,
     loading,
     isAdmin,
-    localAdmin,
-    setLocalAdmin: (v: boolean) => localAdminStore.set(v),
     isConfigured: isSupabaseConfigured,
     signInWithTwitter,
     signOut

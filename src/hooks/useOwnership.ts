@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { fetchOwnershipRemote, replaceOwnershipRemote, setOwnershipRemote } from '~/data/remote';
 import { ownershipStore, useStore } from '~/data/store';
 import { hasE2EProfile } from '~/lib/e2eAuth';
+import { clearAnonymousOwnershipState } from '~/lib/localProductState';
 import { getSupabase, isSupabaseConfigured } from '~/lib/supabase';
 import type { OwnershipMap } from '~/types';
 
@@ -35,6 +36,7 @@ export function useOwnership() {
         setRemoteOwnership(null);
         return;
       }
+      clearAnonymousOwnershipState();
       const next = await fetchOwnershipRemote();
       if (!cancelled) setRemoteOwnership(next ?? {});
     };

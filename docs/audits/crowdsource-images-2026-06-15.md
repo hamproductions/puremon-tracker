@@ -69,6 +69,10 @@
 12. Destructive image/card actions were still generic.
    - Fixed: admin image delete and card delete controls now include the slot name in their labels.
 
+13. Local catalog/profile/image caches could survive and conflict with Supabase.
+   - Fixed: local catalog/member/deleted/image/profile/admin/submission/cache keys are purged on app load; remote catalog/image state is memory-only; Supabase mode ignores local collection/member/image buffers.
+   - Anonymous `puremon:ownership` is the only crowdsource state allowed locally, and it is cleared once a Supabase session is active so upstream ownership wins.
+
 ## Verification
 
 Commands:
@@ -118,6 +122,7 @@ Browser evidence:
 - `dogfood-output/real-user-supabase-2026-06-16/screenshots/final-user-ownership-supabase.png`
 - `dogfood-output/real-user-supabase-2026-06-16/screenshots/final-user-ownership-fresh-login.png`
 - `dogfood-output/real-user-supabase-2026-06-16/screenshots/final-admin-canonical-upload-delete-result.png`
+- `dogfood-output/real-user-supabase-2026-06-16/screenshots/final-local-state-purge.png`
 
 Real Supabase user-flow proof from 2026-06-16:
 
@@ -137,6 +142,11 @@ Real Supabase user-flow proof from 2026-06-16:
   - `DELETE /rest/v1/bromide_images?bromide_id=eq.floral%3Aarisa%3AL%3A1` returned 204.
   - A follow-up query returned no `bromide_images` rows for `floral:arisa:L:1`.
   - `puremon:images` stayed `null`.
+- Local state purge proof:
+  - Seeded `puremon:collections`, `puremon:deleted-collections`, `puremon:images`, `puremon:members`, `puremon:oshi`, `puremon:remote-catalog`, `puremon:submissions`, `puremon:admin`, and `sessionStorage.puremon:e2e-profile`.
+  - After app load, those keys were gone.
+  - `puremon:ownership` can exist while anonymous.
+  - After signing in as `test_user@ham-san.net`, `puremon:ownership` was removed and `public.ownership` returned `floral:momo:L:1` with `count = 1`.
 
 ## Remaining Risk
 

@@ -2,8 +2,12 @@ import type { Profile } from '~/types';
 
 const KEY = 'puremon:e2e-profile';
 
+function enabled() {
+  return import.meta.env.DEV && import.meta.env.PUBLIC_ENV__ENABLE_E2E_AUTH === 'true';
+}
+
 export function readE2EProfile(): Profile | null {
-  if (!import.meta.env.DEV || typeof window === 'undefined') return null;
+  if (!enabled() || typeof window === 'undefined') return null;
   const role = new URLSearchParams(window.location.search).get('e2e_user');
   if (role === 'user' || role === 'admin') {
     const profile = makeE2EProfile(role);
@@ -21,7 +25,7 @@ export function readE2EProfile(): Profile | null {
 }
 
 export function clearE2EProfile() {
-  if (!import.meta.env.DEV || typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return;
   window.localStorage.removeItem(KEY);
   window.sessionStorage.removeItem(KEY);
 }

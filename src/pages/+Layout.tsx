@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BiMenu, BiX } from 'react-icons/bi';
 import { FaLayerGroup } from 'react-icons/fa6';
 import { usePageContext } from 'vike-react/usePageContext';
@@ -9,6 +9,7 @@ import { Drawer } from '~/components/ui/drawer';
 import { IconButton } from '~/components/ui/styled/icon-button';
 import { Link } from '~/components/ui/link';
 import { useAuth } from '~/hooks/useAuth';
+import { clearProductLocalState } from '~/lib/localProductState';
 import { isActiveRoute, toAppUrl } from '~/utils/url';
 
 interface NavItem {
@@ -57,6 +58,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const items = NAV_ITEMS.filter((i) => !i.admin || isAdmin);
   const currentPath = toAppUrl(urlPathname);
+
+  useEffect(() => {
+    clearProductLocalState();
+  }, []);
 
   function NavLink({ item, big }: { item: NavItem; big?: boolean }) {
     const active = isActiveRoute(item.path, currentPath, item.exact);

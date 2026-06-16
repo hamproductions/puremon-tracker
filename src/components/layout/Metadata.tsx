@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 
 const SITE_NAME = 'ピュアリーモンスター ブロマイド管理';
 const DEFAULT_DESC =
-  'ピュアリーモンスターのブロマイド・コレクション管理＆交換ツール。所持/未所持の記録、不足の確認、譲渡テキスト作成までログイン不要で使えます。';
+  'ピュアリーモンスターのブロマイド・コレクション管理＆交換ツール。ログインして所持/未所持を同期し、不足確認と画像投稿ができます。';
 
 interface MetadataProps {
   title?: string;

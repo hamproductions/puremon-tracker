@@ -65,8 +65,7 @@ are defined on the server** (an admin defines them once and every visitor sees t
 Once configured, the app fetches the catalog from Supabase, and everything an admin does on `/admin` —
 create/edit collections, register/approve bromide images — writes to the server, so all users see it.
 Logged-in ownership ticks write to `public.ownership`; anonymous ticks stay in localStorage. Anonymous
-visitors can still browse public catalog data. Without Supabase, `/admin` → **ローカル管理モードを有効化**
-edits a device-local catalog instead for development only. Image upload requires Supabase login.
+visitors can still browse public catalog data. Admin management and image upload require Supabase login.
 
 ## Local Supabase (dev)
 

@@ -58,10 +58,10 @@ async function refreshRemoteCatalog() {
 
 export function useCatalog(): Catalog {
   const remote = useStore(remoteCatalogStore);
-  const customCollections = useStore(customCollectionsStore);
-  const customMembers = useStore(customMembersStore);
-  const localImages = useStore(bromideImagesStore);
-  const deletedCollections = useStore(deletedCollectionsStore);
+  const storedCustomCollections = useStore(customCollectionsStore);
+  const storedCustomMembers = useStore(customMembersStore);
+  const storedLocalImages = useStore(bromideImagesStore);
+  const storedDeletedCollections = useStore(deletedCollectionsStore);
 
   useEffect(() => {
     if (!isSupabaseConfigured || hasE2EProfile() || fetchedOnce) return;
@@ -71,13 +71,17 @@ export function useCatalog(): Catalog {
 
   useEffect(() => {
     if (!isSupabaseConfigured || hasE2EProfile()) return;
-    if (Object.keys(localImages).length === 0) return;
+    if (Object.keys(storedLocalImages).length === 0) return;
     bromideImagesStore.set({});
-  }, [localImages]);
+  }, [storedLocalImages]);
 
   return useMemo(() => {
     const e2e = hasE2EProfile();
-    const includeLocalImages = e2e || !isSupabaseConfigured;
+    const includeLocalState = e2e || !isSupabaseConfigured;
+    const customCollections = includeLocalState ? storedCustomCollections : [];
+    const customMembers = includeLocalState ? storedCustomMembers : [];
+    const localImages = includeLocalState ? storedLocalImages : {};
+    const deletedCollections = includeLocalState ? storedDeletedCollections : [];
     const baseMembers =
       !e2e && remote && remote.members.length > 0 ? remote.members : seedCatalog.members;
     const baseCollections = remote
@@ -96,13 +100,28 @@ export function useCatalog(): Catalog {
       customMembers,
       localImages,
       deletedCollections,
-      { includeLocalImages }
+      { includeLocalImages: includeLocalState }
     );
-  }, [remote, customCollections, customMembers, localImages, deletedCollections]);
+  }, [
+    remote,
+    storedCustomCollections,
+    storedCustomMembers,
+    storedLocalImages,
+    storedDeletedCollections
+  ]);
 }
 
 export const catalogActions = {
   async upsertCollection(collection: Collection) {
+    if (!hasE2EProfile() && isSupabaseConfigured) {
+      try {
+        await upsertCollectionRemote(collection);
+        await refreshRemoteCatalog();
+      } catch (e) {
+        console.error('collections upsert failed', e);
+      }
+      return;
+    }
     deletedCollectionsStore.update((list) => list.filter((d) => d !== collection.id));
     customCollectionsStore.update((list) => [
       ...list.filter((c) => c.id !== collection.id),
@@ -119,6 +138,15 @@ export const catalogActions = {
     }
   },
   async deleteCollection(id: string) {
+    if (!hasE2EProfile() && isSupabaseConfigured) {
+      try {
+        await deleteCollectionRemote(id);
+        await refreshRemoteCatalog();
+      } catch (e) {
+        console.error('collections delete failed', e);
+      }
+      return;
+    }
     customCollectionsStore.update((list) => list.filter((c) => c.id !== id));
     deletedCollectionsStore.update((list) => (list.includes(id) ? list : [...list, id]));
     if (hasE2EProfile()) return;
@@ -131,6 +159,15 @@ export const catalogActions = {
     }
   },
   async upsertMember(member: Member) {
+    if (!hasE2EProfile() && isSupabaseConfigured) {
+      try {
+        await upsertMemberRemote(member);
+        await refreshRemoteCatalog();
+      } catch (e) {
+        console.error('members upsert failed', e);
+      }
+      return;
+    }
     customMembersStore.update((list) => [...list.filter((m) => m.id !== member.id), member]);
     if (hasE2EProfile()) return;
     if (!isSupabaseConfigured) return;

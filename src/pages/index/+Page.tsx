@@ -84,7 +84,7 @@ export default function Page() {
       <Stack gap="1">
         <Heading fontSize={{ base: 'xl', md: '2xl' }}>ピュアリーモンスター ブロマイド管理</Heading>
         <Text color="fg.muted" fontSize="sm">
-          所持・不足・ダブりを記録して、コンプを目指そう。ログインなしで使えます。
+          所持・不足・ダブりを記録して、コンプを目指そう。ログインすると端末をまたいで同期できます。
         </Text>
       </Stack>
 

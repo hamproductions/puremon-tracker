@@ -78,26 +78,50 @@ function createPersistedStore<T>(key: string, initial: T): PersistedStore<T> {
   };
 }
 
+function createMemoryStore<T>(key: string, initial: T): PersistedStore<T> {
+  let value: T = initial;
+  const listeners = new Set<Listener>();
+
+  const set = (next: T) => {
+    value = next;
+    listeners.forEach((l) => l());
+  };
+
+  return {
+    key,
+    get() {
+      return value;
+    },
+    set,
+    update(fn) {
+      set(fn(value));
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    getServerSnapshot() {
+      return initial;
+    }
+  };
+}
+
 export function useStore<T>(store: PersistedStore<T>): T {
   return useSyncExternalStore(store.subscribe, store.get, store.getServerSnapshot);
 }
 
-export const customCollectionsStore = createPersistedStore<Collection[]>('puremon:collections', []);
-export const deletedCollectionsStore = createPersistedStore<string[]>(
+export const customCollectionsStore = createMemoryStore<Collection[]>('puremon:collections', []);
+export const deletedCollectionsStore = createMemoryStore<string[]>(
   'puremon:deleted-collections',
   []
 );
-export const customMembersStore = createPersistedStore<Member[]>('puremon:members', []);
-export const bromideImagesStore = createPersistedStore<Record<string, string>>(
-  'puremon:images',
-  {}
-);
+export const customMembersStore = createMemoryStore<Member[]>('puremon:members', []);
+export const bromideImagesStore = createMemoryStore<Record<string, string>>('puremon:images', {});
 export const ownershipStore = createPersistedStore<OwnershipMap>('puremon:ownership', {});
-export const submissionsStore = createPersistedStore<Submission[]>('puremon:submissions', []);
+export const submissionsStore = createMemoryStore<Submission[]>('puremon:submissions', []);
 export const tradesStore = createPersistedStore<TradeListing[]>('puremon:trades', []);
-export const localAdminStore = createPersistedStore<boolean>('puremon:admin', false);
-export const remoteCatalogStore = createPersistedStore<RemoteCatalog | null>(
+export const remoteCatalogStore = createMemoryStore<RemoteCatalog | null>(
   'puremon:remote-catalog',
   null
 );
-export const oshiStore = createPersistedStore<string[]>('puremon:oshi', []);
+export const oshiStore = createMemoryStore<string[]>('puremon:oshi', []);
