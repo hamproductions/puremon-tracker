@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Cropper, { type Area, type Point } from 'react-easy-crop';
 import {
   FaArrowLeft,
@@ -574,6 +575,7 @@ function CropStep({
   adminEdit: boolean;
 }) {
   const { toast } = useToaster();
+  const queryClient = useQueryClient();
   const current = picked[cropIndex];
   const target = queueBromides[savedCount];
 
@@ -681,6 +683,7 @@ function CropStep({
         await saveImageSubmission(
           createImageSubmission({ bromideId: target.id, imageUrl: url, profile })
         );
+        void queryClient.invalidateQueries({ queryKey: ['my-submissions'] });
       }
       const saved = savedCount + 1;
       setSavedCount(saved);

@@ -10,6 +10,7 @@ import { BromideTile } from '~/components/bromide/BromideTile';
 import { ProgressBar } from '~/components/bromide/Progress';
 import { CollectionCard } from '~/components/collection/CollectionCard';
 import { ExportDialog } from '~/components/mypick/ExportDialog';
+import { MySubmissions } from '~/components/submit/MySubmissions';
 import { useCatalog } from '~/hooks/useCatalog';
 import { useMounted } from '~/hooks/useMounted';
 import { useOshi } from '~/hooks/useOshi';
@@ -296,6 +297,8 @@ export default function Page() {
           </Grid>
         </Stack>
       ) : null}
+
+      <MySubmissions catalog={catalog} />
 
       <Stack
         gap="2.5"

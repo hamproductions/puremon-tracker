@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchOwnershipRemote, replaceOwnershipRemote, setOwnershipRemote } from '~/data/remote';
 import { ownershipStore, useStore } from '~/data/store';
+import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
 import { clearAnonymousOwnershipState } from '~/lib/localProductState';
 import { isSupabaseConfigured } from '~/lib/supabase';
@@ -26,6 +27,7 @@ export function mergeOwnershipForLogin(
 export function useOwnership() {
   const localOwnership = useStore(ownershipStore);
   const { profile } = useAuth();
+  const { toast } = useToaster();
   const queryClient = useQueryClient();
   const migratedUsers = useRef(new Set<string>());
   const userId = isSupabaseConfigured ? profile?.id : null;
@@ -64,6 +66,7 @@ export function useOwnership() {
     },
     onError: (e, _next, previous) => {
       if (previous) queryClient.setQueryData(key, previous);
+      toast({ title: '所持状況の保存に失敗しました', type: 'error' });
       console.error('ownership sync failed', e);
     },
     onSettled: () => {
@@ -80,6 +83,7 @@ export function useOwnership() {
     },
     onError: (e, _next, previous) => {
       if (previous) queryClient.setQueryData(key, previous);
+      toast({ title: '所持状況の保存に失敗しました', type: 'error' });
       console.error('ownership sync failed', e);
     },
     onSettled: () => {

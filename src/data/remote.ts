@@ -1,5 +1,6 @@
 import { getSupabase } from '~/lib/supabase';
-import type { Collection, Member, OwnershipMap } from '~/types';
+import { bromideStoragePath } from '~/lib/storage';
+import type { Collection, Member, OwnershipMap, Submission, SubmissionStatus } from '~/types';
 
 export interface RemoteCatalog {
   members: Member[];
@@ -115,8 +116,53 @@ export async function upsertCollectionRemote(collection: Collection): Promise<vo
 export async function deleteCollectionRemote(id: string): Promise<void> {
   const sb = getSupabase();
   if (!sb) return;
-  const { error } = await sb.from('collections').delete().eq('id', id);
+  const prefix = `${id}:%`;
+  const [images, subs] = await Promise.all([
+    sb.from('bromide_images').select('image_url').like('bromide_id', prefix),
+    sb.from('submissions').select('image_url').like('bromide_id', prefix)
+  ]);
+  const paths = [...(images.data ?? []), ...(subs.data ?? [])]
+    .map((r) => bromideStoragePath((r as { image_url: string }).image_url))
+    .filter((p): p is string => Boolean(p));
+  if (paths.length > 0) await sb.storage.from('bromides').remove([...new Set(paths)]);
+  const { error } = await sb.rpc('delete_collection', { p_collection_id: id });
   if (error) throw error;
+}
+
+interface SubmissionRow {
+  id: string;
+  bromide_id: string;
+  image_url: string;
+  status: SubmissionStatus;
+  note: string | null;
+  submitted_by: string;
+  submitted_handle: string | null;
+  created_at: string;
+}
+
+export async function fetchMySubmissions(): Promise<Submission[]> {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const {
+    data: { user }
+  } = await sb.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await sb
+    .from('submissions')
+    .select('*')
+    .eq('submitted_by', user.id)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as SubmissionRow[]).map((r) => ({
+    id: r.id,
+    bromideId: r.bromide_id,
+    imageUrl: r.image_url,
+    status: r.status,
+    note: r.note ?? undefined,
+    submittedBy: r.submitted_by,
+    submittedHandle: r.submitted_handle ?? undefined,
+    createdAt: r.created_at
+  }));
 }
 
 export async function upsertMemberRemote(member: Member): Promise<void> {
