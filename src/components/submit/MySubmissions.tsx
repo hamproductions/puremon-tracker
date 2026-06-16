@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Box, Grid, HStack, Stack, styled } from 'styled-system/jsx';
+import { FaImage } from 'react-icons/fa6';
+import { Box, Center, Grid, HStack, Stack, styled } from 'styled-system/jsx';
 import { Heading } from '~/components/ui/heading';
 import { Text } from '~/components/ui/text';
 import { StatusBadge } from '~/components/submit/StatusBadge';
@@ -49,15 +50,21 @@ export function MySubmissions({ catalog }: { catalog: Catalog }) {
                 bgColor="bg.muted"
                 overflow="hidden"
               >
-                <Img
-                  src={s.imageUrl}
-                  alt=""
-                  inset="0"
-                  position="absolute"
-                  objectFit="cover"
-                  w="full"
-                  h="full"
-                />
+                {s.status === 'rejected' ? (
+                  <Center inset="0" position="absolute" color="fg.muted">
+                    <FaImage />
+                  </Center>
+                ) : (
+                  <Img
+                    src={s.imageUrl}
+                    alt=""
+                    inset="0"
+                    position="absolute"
+                    objectFit="cover"
+                    w="full"
+                    h="full"
+                  />
+                )}
               </Box>
               <HStack gap="1" justifyContent="space-between" alignItems="center">
                 <Text color="fg.muted" fontSize="2xs" lineClamp={1}>
