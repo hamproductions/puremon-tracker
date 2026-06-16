@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { FaArrowRight, FaHeart, FaImage } from 'react-icons/fa6';
-import { Box, Center, Grid, HStack, Stack, Wrap, styled } from 'styled-system/jsx';
+import { FaHeart, FaImage } from 'react-icons/fa6';
+import { Box, Grid, HStack, Stack, Wrap, styled } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Heading } from '~/components/ui/heading';
@@ -45,18 +45,6 @@ export default function Page() {
   );
   const almostIds = new Set(almostThere.map((x) => x.c.id));
   const recent = colStats.filter((x) => !almostIds.has(x.c.id)).slice(0, 3);
-  const imageNeeded = useMemo(
-    () =>
-      catalog.collections
-        .map((c) => ({
-          c,
-          missing: catalog.bromides.filter((b) => b.collectionId === c.id && !b.imageUrl).length
-        }))
-        .filter((x) => x.missing > 0)
-        .sort((a, b) => b.missing - a.missing)
-        .slice(0, 3),
-    [catalog]
-  );
 
   const memberStats = useMemo(
     () =>
@@ -246,60 +234,6 @@ export default function Page() {
                 ownership={ownership}
                 mounted={mounted}
               />
-            ))}
-          </Grid>
-        </Stack>
-      ) : null}
-
-      {imageNeeded.length > 0 ? (
-        <Stack gap="2.5">
-          <HStack gap="2" alignItems="baseline" px="1">
-            <Heading fontSize="md">画像募集中</Heading>
-            <Text color="fg.muted" fontSize="xs">
-              足りない画像の投稿先
-            </Text>
-          </HStack>
-          <Grid gap="3" alignItems="start" columns={{ base: 1, sm: 2, lg: 3 }}>
-            {imageNeeded.map(({ c, missing }) => (
-              <Link
-                key={c.id}
-                href={toAppUrl(`/collections/?c=${c.id}`)}
-                _hover={{ textDecoration: 'none' }}
-              >
-                <HStack
-                  gap="3"
-                  alignItems="center"
-                  borderColor="board.border"
-                  borderRadius="xl"
-                  borderWidth="1px"
-                  p="3"
-                  bgColor="board.panelSolid"
-                  transition="border-color 0.15s, transform 0.15s"
-                  _hover={{ borderColor: 'accent.default', transform: 'translateY(-2px)' }}
-                >
-                  <Center
-                    flexShrink="0"
-                    borderRadius="lg"
-                    w="10"
-                    h="10"
-                    color="accent.text"
-                    bgColor="accent.subtle"
-                  >
-                    <FaImage size={16} />
-                  </Center>
-                  <Stack flex="1" gap="0.5" minW="0">
-                    <Text fontSize="sm" fontWeight="bold" truncate>
-                      {c.title}
-                    </Text>
-                    <Text color="accent.text" fontSize="xs" fontWeight="bold">
-                      あと {missing} 枚 募集中
-                    </Text>
-                  </Stack>
-                  <Box flexShrink="0" color="fg.subtle">
-                    <FaArrowRight size={13} />
-                  </Box>
-                </HStack>
-              </Link>
             ))}
           </Grid>
         </Stack>
