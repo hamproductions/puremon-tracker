@@ -54,6 +54,43 @@ export async function uploadBromideImage(
   return { url: publicUrl, mode: 'cloud' };
 }
 
+export function bromideStoragePath(imageUrl: string | null | undefined): string | null {
+  if (!imageUrl) return null;
+  const marker = '/object/public/bromides/';
+  const idx = imageUrl.indexOf(marker);
+  if (idx === -1) return null;
+  let path: string;
+  try {
+    path = decodeURIComponent(imageUrl.slice(idx + marker.length).split('?')[0]);
+  } catch {
+    return null;
+  }
+  if (!path || path.startsWith('/') || path.split('/').some((seg) => seg === '..')) return null;
+  return path;
+}
+
+export async function deleteBromideImage(imageUrl: string | null | undefined): Promise<void> {
+  if (hasE2EProfile()) return;
+  const path = bromideStoragePath(imageUrl);
+  if (!path) return;
+  const sb = getSupabase();
+  if (!sb) return;
+  const canonical = await sb
+    .from('bromide_images')
+    .select('bromide_id')
+    .eq('image_url', imageUrl)
+    .limit(1);
+  if (canonical.error || !canonical.data || canonical.data.length > 0) return;
+  const pending = await sb
+    .from('submissions')
+    .select('id')
+    .eq('image_url', imageUrl)
+    .eq('status', 'pending')
+    .limit(1);
+  if (pending.error || !pending.data || pending.data.length > 0) return;
+  await sb.storage.from('bromides').remove([path]);
+}
+
 type Bitmap = ImageBitmap | HTMLImageElement;
 
 async function loadBitmap(file: File): Promise<Bitmap> {

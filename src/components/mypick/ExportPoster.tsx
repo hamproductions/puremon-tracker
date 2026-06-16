@@ -2,8 +2,7 @@ import { forwardRef } from 'react';
 import { Box, Grid, HStack, Stack } from 'styled-system/jsx';
 import { Text } from '~/components/ui/text';
 import type { Catalog, Member, OwnershipMap } from '~/types';
-import { collectionStats, memberMap, overallStats } from '~/utils/stats';
-import { bromideId, collectionSizes } from '~/data/catalog';
+import { bromideCount, collectionStats, memberMap, overallStats } from '~/utils/stats';
 
 interface MemberRowStat {
   member: Member;
@@ -13,18 +12,17 @@ interface MemberRowStat {
 
 function memberRowStats(catalog: Catalog, ownership: OwnershipMap): MemberRowStat[] {
   const mm = memberMap(catalog);
+  const memberGrid = new Set(
+    catalog.collections.filter((c) => c.kind === 'member_grid').map((c) => c.id)
+  );
   return catalog.members
     .map((member) => {
       let owned = 0;
       let total = 0;
-      for (const c of catalog.collections) {
-        if (c.kind !== 'member_grid' || !c.memberIds.includes(member.id)) continue;
-        for (const no of c.numbers) {
-          for (const sz of collectionSizes(c)) {
-            total += 1;
-            if ((ownership[bromideId(c.id, member.id, no, sz)] ?? 0) >= 1) owned += 1;
-          }
-        }
+      for (const b of catalog.bromides) {
+        if (b.memberId !== member.id || !memberGrid.has(b.collectionId)) continue;
+        total += 1;
+        if (bromideCount(ownership, b) >= 1) owned += 1;
       }
       return { member: mm.get(member.id) ?? member, owned, total };
     })

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchPreferenceRemote, setPreferenceRemote } from '~/data/remote';
+import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
 import { isSupabaseConfigured } from '~/lib/supabase';
 
@@ -13,6 +14,7 @@ export function useUserPreference<T>(
 ): [T, (next: T | ((prev: T) => T)) => void] {
   const [localValue, setLocalValue] = useState(initial);
   const { profile } = useAuth();
+  const { toast } = useToaster();
   const queryClient = useQueryClient();
   const userId = isSupabaseConfigured ? profile?.id : null;
   const remote = Boolean(userId);
@@ -37,6 +39,7 @@ export function useUserPreference<T>(
     },
     onError: (e, _next, previous) => {
       queryClient.setQueryData(queryKey, previous);
+      toast({ title: '表示設定の保存に失敗しました', type: 'error' });
       console.error('preference sync failed', e);
     },
     onSettled: () => {

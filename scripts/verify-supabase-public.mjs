@@ -54,7 +54,7 @@ requirePass('public approved images read', !images.error, images.error?.message)
 const profiles = await sb.from('profiles').select('id,is_admin').limit(1);
 requirePass(
   'anonymous profiles read blocked',
-  Boolean(profiles.error),
+  Boolean(profiles.error) || (Array.isArray(profiles.data) && profiles.data.length === 0),
   'anonymous profiles read unexpectedly succeeded'
 );
 

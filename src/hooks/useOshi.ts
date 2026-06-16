@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchOshiRemote, setOshiRemote } from '~/data/remote';
 import { oshiStore, useStore } from '~/data/store';
+import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
 import { isSupabaseConfigured } from '~/lib/supabase';
 
@@ -9,6 +10,7 @@ const oshiQueryKey = (userId: string | null | undefined) => ['oshi', userId] as 
 export function useOshi() {
   const localOshi = useStore(oshiStore);
   const { profile } = useAuth();
+  const { toast } = useToaster();
   const queryClient = useQueryClient();
   const userId = isSupabaseConfigured ? profile?.id : null;
   const remote = Boolean(userId);
@@ -33,6 +35,7 @@ export function useOshi() {
     },
     onError: (e, _next, previous) => {
       if (previous) queryClient.setQueryData(key, previous);
+      toast({ title: '推しの保存に失敗しました', type: 'error' });
       console.error('oshi sync failed', e);
     },
     onSettled: () => {
