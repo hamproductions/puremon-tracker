@@ -128,7 +128,7 @@ export function buildStableSlots(
   });
 }
 
-function buildSlotsFromItems(
+export function buildSlotsFromItems(
   collectionId: string,
   items: BromideSpec[],
   previous: Collection | null
@@ -296,9 +296,9 @@ export function CollectionEditor({
   const addRows = (n: number) => {
     setItems((items) => [
       ...items,
-      ...Array.from({ length: n }, () => ({
+      ...Array.from({ length: n }, (_, k) => ({
         memberId: null,
-        no: items.length + 1,
+        no: items.length + 1 + k,
         size: form.seedL ? 'L' : form.seed2L ? '2L' : null,
         aspect: DEFAULT_BROMIDE_ASPECT
       }))

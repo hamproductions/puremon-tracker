@@ -19,13 +19,13 @@ import { Text } from '~/components/ui/text';
 import { BromideTile } from '~/components/bromide/BromideTile';
 import { ProgressBar, StatPills } from '~/components/bromide/Progress';
 import { PhotoAddDialog } from '~/components/photo/PhotoAddDialog';
-import { buildStableSlots } from '~/components/admin/CollectionEditor';
+import { buildSlotsFromItems } from '~/components/admin/CollectionEditor';
 import { deleteBromideImage } from '~/lib/storage';
 import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
 import { catalogActions } from '~/hooks/useCatalog';
 import { useUserPreference } from '~/hooks/useUserPreference';
-import type { Bromide, Catalog, Collection, Member } from '~/types';
+import type { Bromide, BromideSpec, Catalog, Collection, Member } from '~/types';
 import { DEFAULT_BROMIDE_ASPECT, bromideAspectRatio } from '~/utils/aspect';
 import { bromideCount, buildGrid, collectionStats, memberMap, slotLabel } from '~/utils/stats';
 import { toAppUrl } from '~/utils/url';
@@ -110,51 +110,50 @@ export function CollectionDetail({
     null
   );
   const [addNo, setAddNo] = useState(1);
-  const [addType, setAddType] = useState('');
 
-  const updateItems = (
-    items: { memberId: string | null; no: number; type?: string; label?: string }[]
-  ) => {
-    const next = { ...collection, items };
-    void catalogActions.upsertCollection({ ...next, slots: buildStableSlots(next, collection) });
+  const sameCard = (it: BromideSpec, target: Bromide) =>
+    it.memberId === target.memberId &&
+    it.no === target.no &&
+    (it.size ?? null) === (target.size ?? null);
+
+  const updateItems = (items: BromideSpec[]) => {
+    void catalogActions.upsertCollection({
+      ...collection,
+      items,
+      slots: buildSlotsFromItems(collection.id, items, collection)
+    });
   };
   const retagItem = (target: Bromide, memberId: string | null) => {
     if (memberId === target.memberId) return;
     const clash = (collection.items ?? []).some(
-      (it) => it.memberId === memberId && it.no === target.no && it.type === target.type
+      (it) =>
+        it.memberId === memberId &&
+        it.no === target.no &&
+        (it.size ?? null) === (target.size ?? null)
     );
     if (clash) {
-      toast({ title: 'そのタグの画像はすでにあります', type: 'error' });
+      toast({ title: 'その枠はすでにあります', type: 'error' });
       return;
     }
     updateItems(
-      (collection.items ?? []).map((it) =>
-        it.memberId === target.memberId && it.no === target.no && it.type === target.type
-          ? { memberId, no: it.no, type: it.type, label: it.label }
-          : it
-      )
+      (collection.items ?? []).map((it) => (sameCard(it, target) ? { ...it, memberId } : it))
     );
     toast({ title: 'メンバーを変更しました', type: 'success' });
   };
   const removeItem = (target: Bromide) => {
-    updateItems(
-      (collection.items ?? []).filter(
-        (it) => !(it.memberId === target.memberId && it.no === target.no && it.type === target.type)
-      )
-    );
-    toast({ title: 'カードを削除しました', type: 'success' });
+    updateItems((collection.items ?? []).filter((it) => !sameCard(it, target)));
+    toast({ title: 'アイテムを削除しました', type: 'success' });
   };
-  const addItem = (memberId: string | null, no: number, type?: string) => {
-    if (
-      (collection.items ?? []).some(
-        (it) => it.memberId === memberId && it.no === no && it.type === type
-      )
-    ) {
+  const addItem = (memberId: string | null, no: number) => {
+    if ((collection.items ?? []).some((it) => it.memberId === memberId && it.no === no)) {
       toast({ title: 'すでに追加済みです', type: 'error' });
       return;
     }
-    updateItems([...(collection.items ?? []), { memberId, no, type }]);
-    toast({ title: 'カードを追加しました', type: 'success' });
+    updateItems([
+      ...(collection.items ?? []),
+      { memberId, no, size: null, aspect: DEFAULT_BROMIDE_ASPECT }
+    ]);
+    toast({ title: 'アイテムを追加しました', type: 'success' });
   };
   const removeImage = async (target: Bromide) => {
     const saved = await catalogActions.setBromideImage(target.id, null);
@@ -459,7 +458,6 @@ export function CollectionDetail({
             adminEdit && isMixed
               ? () => {
                   setAddNo(1);
-                  setAddType('');
                   setEditTarget({ mode: 'add' });
                 }
               : undefined
@@ -504,24 +502,6 @@ export function CollectionDetail({
                   />
                 </HStack>
               ) : null}
-              {editTarget?.mode === 'add' ? (
-                <Stack gap="1">
-                  <Text fontSize="sm" fontWeight="bold">
-                    タイプ / タグ
-                  </Text>
-                  <styled.input
-                    value={addType}
-                    onChange={(e) => setAddType(e.target.value)}
-                    placeholder="A, 引き, レア"
-                    borderColor="border.default"
-                    borderRadius="l2"
-                    borderWidth="1px"
-                    py="1.5"
-                    px="2.5"
-                    fontSize="sm"
-                  />
-                </Stack>
-              ) : null}
               <Text color="fg.muted" fontSize="xs">
                 メンバータグを選択してください
               </Text>
@@ -534,8 +514,7 @@ export function CollectionDetail({
                       key={memberId ?? '__group__'}
                       type="button"
                       onClick={() => {
-                        if (editTarget?.mode === 'add')
-                          addItem(memberId, addNo, addType.trim() || undefined);
+                        if (editTarget?.mode === 'add') addItem(memberId, addNo);
                         else if (editTarget?.bromide) retagItem(editTarget.bromide, memberId);
                         setEditTarget(null);
                       }}
