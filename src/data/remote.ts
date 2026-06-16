@@ -87,25 +87,22 @@ function fromMember(m: Member): MemberRow {
 export async function fetchRemoteCatalog(): Promise<RemoteCatalog | null> {
   const sb = getSupabase();
   if (!sb) return null;
-  try {
-    const [members, collections, images] = await Promise.all([
-      sb.from('members').select('*').order('order'),
-      sb.from('collections').select('*'),
-      sb.from('bromide_images').select('*')
-    ]);
-    if (members.error || collections.error || images.error) return null;
-    const imageMap: Record<string, string> = {};
-    for (const row of (images.data ?? []) as { bromide_id: string; image_url: string }[]) {
-      imageMap[row.bromide_id] = row.image_url;
-    }
-    return {
-      members: ((members.data ?? []) as MemberRow[]).map(toMember),
-      collections: ((collections.data ?? []) as CollectionRow[]).map(toCollection),
-      images: imageMap
-    };
-  } catch {
-    return null;
+  const [members, collections, images] = await Promise.all([
+    sb.from('members').select('*').order('order'),
+    sb.from('collections').select('*'),
+    sb.from('bromide_images').select('*')
+  ]);
+  const failed = members.error || collections.error || images.error;
+  if (failed) throw failed;
+  const imageMap: Record<string, string> = {};
+  for (const row of (images.data ?? []) as { bromide_id: string; image_url: string }[]) {
+    imageMap[row.bromide_id] = row.image_url;
   }
+  return {
+    members: ((members.data ?? []) as MemberRow[]).map(toMember),
+    collections: ((collections.data ?? []) as CollectionRow[]).map(toCollection),
+    images: imageMap
+  };
 }
 
 export async function upsertCollectionRemote(collection: Collection): Promise<void> {

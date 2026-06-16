@@ -49,7 +49,10 @@ export function useOwnership() {
       .then(() => {
         clearAnonymousOwnershipState();
       })
-      .catch((e) => console.error('ownership sync failed', e));
+      .catch((e) => {
+        migratedUsers.current.delete(userId);
+        console.error('ownership sync failed', e);
+      });
   }, [key, queryClient, remoteQuery.data, remoteQuery.isSuccess, userId]);
 
   const setRemoteCount = useMutation({

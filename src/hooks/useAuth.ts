@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { getSupabase, isSupabaseConfigured } from '~/lib/supabase';
 import { resolveProfile } from '~/lib/authProfile';
 import { clearE2EProfile, readE2EProfile } from '~/lib/e2eAuth';
@@ -18,6 +19,7 @@ interface AuthState {
 export const AuthContext = createContext<AuthState | null>(null);
 
 export function useProvideAuth(): AuthState {
+  const queryClient = useQueryClient();
   const initialE2EProfile = readE2EProfile();
   const [profile, setProfile] = useState<Profile | null>(initialE2EProfile);
   const [loading, setLoading] = useState(isSupabaseConfigured && !initialE2EProfile);
@@ -61,6 +63,7 @@ export function useProvideAuth(): AuthState {
     const sb = getSupabase();
     await sb?.auth.signOut();
     setProfile(null);
+    queryClient.clear();
   };
 
   const isAdmin = Boolean(profile?.isAdmin);
