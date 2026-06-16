@@ -9,6 +9,7 @@ import { useToaster } from '~/context/ToasterContext';
 import { catalogActions } from '~/hooks/useCatalog';
 import { submissionsStore, useStore } from '~/data/store';
 import { hasE2EProfile } from '~/lib/e2eAuth';
+import { deleteBromideImage } from '~/lib/storage';
 import { getSupabase } from '~/lib/supabase';
 import type { Catalog, Submission, SubmissionStatus } from '~/types';
 import { DEFAULT_BROMIDE_ASPECT, bromideAspectRatio } from '~/utils/aspect';
@@ -103,6 +104,7 @@ export function SubmissionReview({ catalog }: { catalog: Catalog }) {
   const reject = async (sub: Submission) => {
     try {
       await setStatus(sub, 'rejected');
+      await deleteBromideImage(sub.imageUrl);
       toast({ title: '却下しました', type: 'info' });
     } catch {
       toast({ title: '却下に失敗しました', type: 'error' });

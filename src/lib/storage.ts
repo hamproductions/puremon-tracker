@@ -54,6 +54,18 @@ export async function uploadBromideImage(
   return { url: publicUrl, mode: 'cloud' };
 }
 
+export async function deleteBromideImage(imageUrl: string | null | undefined): Promise<void> {
+  if (!imageUrl || hasE2EProfile()) return;
+  const marker = '/object/public/bromides/';
+  const idx = imageUrl.indexOf(marker);
+  if (idx === -1) return;
+  const path = decodeURIComponent(imageUrl.slice(idx + marker.length).split('?')[0]);
+  if (!path) return;
+  const sb = getSupabase();
+  if (!sb) return;
+  await sb.storage.from('bromides').remove([path]);
+}
+
 type Bitmap = ImageBitmap | HTMLImageElement;
 
 async function loadBitmap(file: File): Promise<Bitmap> {

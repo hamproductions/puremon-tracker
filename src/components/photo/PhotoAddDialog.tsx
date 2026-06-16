@@ -22,7 +22,7 @@ import { Text } from '~/components/ui/text';
 import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
 import { catalogActions } from '~/hooks/useCatalog';
-import { uploadBromideImage } from '~/lib/storage';
+import { deleteBromideImage, uploadBromideImage } from '~/lib/storage';
 import { createImageSubmission, saveImageSubmission } from '~/lib/submissions';
 import type { Bromide, Catalog, Collection } from '~/types';
 import { bromideLabel, bromidesByCollection, memberColor } from '~/utils/stats';
@@ -676,6 +676,7 @@ function CropStep({
       if (adminEdit) {
         const saved = await catalogActions.setBromideImage(target.id, url);
         if (!saved) throw new Error('image registration failed');
+        if (target.imageUrl && target.imageUrl !== url) await deleteBromideImage(target.imageUrl);
       } else {
         await saveImageSubmission(
           createImageSubmission({ bromideId: target.id, imageUrl: url, profile })

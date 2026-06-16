@@ -19,6 +19,7 @@ import { Text } from '~/components/ui/text';
 import { BromideTile } from '~/components/bromide/BromideTile';
 import { ProgressBar, StatPills } from '~/components/bromide/Progress';
 import { PhotoAddDialog } from '~/components/photo/PhotoAddDialog';
+import { deleteBromideImage } from '~/lib/storage';
 import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
 import { catalogActions } from '~/hooks/useCatalog';
@@ -155,6 +156,7 @@ export function CollectionDetail({
   };
   const removeImage = async (target: Bromide) => {
     const saved = await catalogActions.setBromideImage(target.id, null);
+    if (saved) await deleteBromideImage(target.imageUrl);
     toast({
       title: saved ? '画像を削除しました' : '画像の削除に失敗しました',
       type: saved ? 'success' : 'error'
