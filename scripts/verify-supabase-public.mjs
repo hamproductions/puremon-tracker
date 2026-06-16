@@ -51,6 +51,13 @@ requirePass(
 const images = await sb.from('bromide_images').select('bromide_id').limit(1);
 requirePass('public approved images read', !images.error, images.error?.message);
 
+const profiles = await sb.from('profiles').select('id,is_admin').limit(1);
+requirePass(
+  'anonymous profiles read blocked',
+  Boolean(profiles.error),
+  'anonymous profiles read unexpectedly succeeded'
+);
+
 const submission = await sb.from('submissions').insert({
   id: `anon-policy-test-${Date.now()}`,
   bromide_id: 'policy-test',

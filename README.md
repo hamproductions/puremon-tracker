@@ -54,6 +54,8 @@ are defined on the server** (an admin defines them once and every visitor sees t
      prevents authenticated users from changing their own admin flag.
    - [`supabase/migrations/0004_profile_update_policy_guard.sql`](supabase/migrations/0004_profile_update_policy_guard.sql) —
      tightens the profile update policy so non-admin profile writes cannot carry `is_admin` changes.
+   - [`supabase/migrations/0005_profile_read_policy_guard.sql`](supabase/migrations/0005_profile_read_policy_guard.sql) —
+     removes anonymous/public reads from `profiles`.
 4. Copy `.env.example` → `.env`, fill `PUBLIC_ENV__SUPABASE_URL` + `PUBLIC_ENV__SUPABASE_ANON_KEY`, rebuild.
 5. Make yourself admin: `update public.profiles set is_admin = true where handle = 'yourhandle';`
    (and add your handle to `PUBLIC_ENV__ADMIN_HANDLES` so the in-app `/admin` gate opens).
@@ -80,7 +82,8 @@ bun run verify:supabase-public
 This verifies public catalog reads and confirms anonymous users cannot insert submissions or upload
 storage objects. Authenticated non-admin `profiles.is_admin` escalation is guarded by
 `supabase/migrations/0003_profile_admin_guard.sql` and
-`supabase/migrations/0004_profile_update_policy_guard.sql`; verify a deployed database has both
+`supabase/migrations/0004_profile_update_policy_guard.sql`; profile row privacy is guarded by
+`supabase/migrations/0005_profile_read_policy_guard.sql`. Verify a deployed database has these
 migrations before treating admin permissions as production-ready.
 
 To verify the deployed authenticated non-admin boundary, provide a disposable non-admin login:

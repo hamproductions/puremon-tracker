@@ -23,4 +23,13 @@ describe('supabase policies', () => {
     expect(sql).toContain('is_admin = public.is_admin(auth.uid())');
     expect(sql).toContain('create policy "admins update profiles"');
   });
+
+  test('keeps profile rows private from anonymous readers', () => {
+    const sql = migration('0005_profile_read_policy_guard.sql');
+
+    expect(sql).toContain('drop policy if exists "profiles are readable by everyone"');
+    expect(sql).toContain('create policy "users read own profile"');
+    expect(sql).toContain('auth.uid() = id');
+    expect(sql).toContain('create policy "admins read profiles"');
+  });
 });
