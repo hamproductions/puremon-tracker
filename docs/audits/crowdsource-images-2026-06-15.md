@@ -57,6 +57,15 @@
 8. Supabase profile policy allowed own-profile updates on a row containing `is_admin`.
    - Fixed in repo: `0003_profile_admin_guard.sql` adds the trigger guard, and `0004_profile_update_policy_guard.sql` tightens the own-profile update policy.
 
+9. Email/password Supabase users were not resolved from `public.profiles`.
+   - Fixed: active Supabase sessions now hydrate the app profile from `profiles`, including `handle`, display name, avatar, and `is_admin`.
+
+10. Authenticated ownership stayed in browser localStorage only.
+   - Fixed: logged-in users read and write `public.ownership`; `puremon:ownership` remains only the logged-out fallback.
+
+11. Image contribution buttons had duplicate labels and small hit targets.
+   - Fixed: each action is uniquely labelled with the slot name and has a wider visible target.
+
 ## Verification
 
 Commands:
@@ -99,7 +108,24 @@ Browser evidence:
 - `dogfood-output/final-permissions/screenshots/10-admin-tagged-slot-rendered.png`
 - `dogfood-output/final-permissions/screenshots/15-admin-uploaded-tile.png`
 - `dogfood-output/final-permissions/screenshots/19-delete-proof-after-delete.png`
+- `dogfood-output/real-user-supabase-2026-06-16/report.md`
+- `dogfood-output/real-user-supabase-2026-06-16/videos/final-user-login-upload.webm`
+- `dogfood-output/real-user-supabase-2026-06-16/screenshots/final-user-login-upload-result.png`
+- `dogfood-output/real-user-supabase-2026-06-16/screenshots/final-user-ownership-supabase.png`
+- `dogfood-output/real-user-supabase-2026-06-16/screenshots/final-user-ownership-fresh-login.png`
+
+Real Supabase user-flow proof from 2026-06-16:
+
+- `test_user@ham-san.net` signed in through Supabase password auth and rendered as `@Test_User`.
+- Toggling `floral:momo:L:1` created `public.ownership` with `count = 1`; `puremon:ownership` stayed `null`.
+- A fresh isolated browser profile restored `floral:momo:L:1` as `所持1枚` after signing in again.
+- Uploading `floral:moeno:L:1` reached the crop step, uploaded to Supabase Storage, and inserted a pending submission:
+  - `POST /storage/v1/object/bromides/floral:moeno:L:1/1781569449089.jpg` returned 200.
+  - `POST /rest/v1/submissions` returned 201.
+  - The latest submission image URL is a Supabase public storage URL.
+  - `puremon:images` stayed `null`.
 
 ## Remaining Risk
 
-- Deployed Supabase projects must apply `supabase/migrations/0003_profile_admin_guard.sql` and `supabase/migrations/0004_profile_update_policy_guard.sql`. Live verification with `test_user@ham-san.net` showed the deployed DB had not yet blocked non-admin `is_admin` escalation.
+- Deployed Supabase projects must apply `supabase/migrations/0003_profile_admin_guard.sql`, `supabase/migrations/0004_profile_update_policy_guard.sql`, and `supabase/migrations/0005_profile_read_policy_guard.sql`. Live verification with `test_user@ham-san.net` still fails until the deployed DB blocks anonymous profile reads and non-admin `is_admin` escalation.
+- The supplied `test_admin@ham-san.net` account currently has `profiles.is_admin=false`, so it cannot validate admin-only canonical upload, collection CRUD, or submission approval until promoted.

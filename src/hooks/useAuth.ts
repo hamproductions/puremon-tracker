@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getSupabase, isSupabaseConfigured } from '~/lib/supabase';
 import { localAdminStore, useStore } from '~/data/store';
-import { toProfile } from '~/lib/authProfile';
+import { resolveProfile } from '~/lib/authProfile';
 import { clearE2EProfile, readE2EProfile } from '~/lib/e2eAuth';
 import type { Profile } from '~/types';
 import { toAppUrl } from '~/utils/url';
@@ -24,14 +24,14 @@ export function useAuth() {
       setLoading(false);
       return;
     }
-    void sb.auth.getSession().then(({ data }) => {
-      setProfile(toProfile(data.session?.user));
+    void sb.auth.getSession().then(async ({ data }) => {
+      setProfile(await resolveProfile(sb, data.session?.user));
       setLoading(false);
     });
     const {
       data: { subscription }
     } = sb.auth.onAuthStateChange((_event, session) => {
-      setProfile(toProfile(session?.user));
+      void resolveProfile(sb, session?.user).then(setProfile);
     });
     return () => subscription.unsubscribe();
   }, []);

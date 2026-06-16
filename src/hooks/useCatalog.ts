@@ -15,7 +15,7 @@ import {
   remoteCatalogStore,
   useStore
 } from '~/data/store';
-import { toProfile } from '~/lib/authProfile';
+import { resolveProfile } from '~/lib/authProfile';
 import { hasE2EProfile, readE2EProfile } from '~/lib/e2eAuth';
 import { getSupabase, isSupabaseConfigured } from '~/lib/supabase';
 import type { Catalog, Collection, Member } from '~/types';
@@ -41,7 +41,8 @@ export function buildMergedCatalog(
   const collections = mergeById(baseCollections, customCollections)
     .filter((c) => !deleted.has(c.id))
     .sort((a, b) => (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''));
-  const images = options.includeLocalImages === false ? baseImages : { ...baseImages, ...localImages };
+  const images =
+    options.includeLocalImages === false ? baseImages : { ...baseImages, ...localImages };
   const bromides = collections
     .flatMap(buildBromides)
     .map((b) => (images[b.id] ? { ...b, imageUrl: images[b.id] } : b));
@@ -157,7 +158,7 @@ export const catalogActions = {
     const {
       data: { session }
     } = (await sb?.auth.getSession()) ?? { data: { session: null } };
-    if (!toProfile(session?.user)?.isAdmin) return false;
+    if (!(await resolveProfile(sb, session?.user))?.isAdmin) return false;
     try {
       await setBromideImageRemote(bromideId, imageUrl);
       await refreshRemoteCatalog();

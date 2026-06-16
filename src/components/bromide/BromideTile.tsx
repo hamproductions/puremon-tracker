@@ -200,7 +200,7 @@ export function BromideTile({
         {(!hasImg || adminEdit) && onAddImage ? (
           <styled.button
             type="button"
-            aria-label={hasImg ? '画像を差し替え' : '画像を追加'}
+            aria-label={`${name}の画像を${hasImg ? '差し替え' : '追加'}`}
             onClick={(e) => {
               e.stopPropagation();
               onAddImage();
@@ -208,14 +208,17 @@ export function BromideTile({
             style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}
             cursor="pointer"
             display="flex"
+            zIndex="2"
             position="absolute"
             left="1"
             bottom={stepper ? (sm ? '5' : '7') : '1'}
             gap="1"
+            justifyContent="center"
             alignItems="center"
             borderRadius="md"
-            py="0.5"
-            px="1.5"
+            minW={sm ? '12' : '10'}
+            h={sm ? '8' : '9'}
+            px="2"
             color="white"
             fontSize="2xs"
             fontWeight="bold"
@@ -224,7 +227,7 @@ export function BromideTile({
             _hover={{ bgColor: 'rgba(0,0,0,0.75)', opacity: 1 }}
           >
             <FaCamera size={9} />
-            {sm ? null : hasImg ? '差替' : '画像'}
+            {hasImg ? '差替' : '画像'}
           </styled.button>
         ) : null}
 

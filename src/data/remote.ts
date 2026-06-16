@@ -1,5 +1,5 @@
 import { getSupabase } from '~/lib/supabase';
-import type { Collection, Member } from '~/types';
+import type { Collection, Member, OwnershipMap } from '~/types';
 
 export interface RemoteCatalog {
   members: Member[];
@@ -138,4 +138,73 @@ export async function setBromideImageRemote(bromideId: string, url: string | nul
     const { error } = await sb.from('bromide_images').delete().eq('bromide_id', bromideId);
     if (error) throw error;
   }
+}
+
+async function currentUserId(): Promise<string | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const {
+    data: { session }
+  } = await sb.auth.getSession();
+  return session?.user.id ?? null;
+}
+
+export async function fetchOwnershipRemote(): Promise<OwnershipMap | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const userId = await currentUserId();
+  if (!userId) return null;
+  const { data, error } = await sb
+    .from('ownership')
+    .select('bromide_id,count')
+    .eq('user_id', userId);
+  if (error) throw error;
+  const next: OwnershipMap = {};
+  for (const row of (data ?? []) as { bromide_id: string; count: number }[]) {
+    if (row.count > 0) next[row.bromide_id] = row.count;
+  }
+  return next;
+}
+
+export async function setOwnershipRemote(bromideId: string, count: number): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const userId = await currentUserId();
+  if (!userId) return;
+  if (count > 0) {
+    const { error } = await sb.from('ownership').upsert({
+      user_id: userId,
+      bromide_id: bromideId,
+      count,
+      updated_at: new Date().toISOString()
+    });
+    if (error) throw error;
+  } else {
+    const { error } = await sb
+      .from('ownership')
+      .delete()
+      .eq('user_id', userId)
+      .eq('bromide_id', bromideId);
+    if (error) throw error;
+  }
+}
+
+export async function replaceOwnershipRemote(ownership: OwnershipMap): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const userId = await currentUserId();
+  if (!userId) return;
+  const { error: deleteError } = await sb.from('ownership').delete().eq('user_id', userId);
+  if (deleteError) throw deleteError;
+  const rows = Object.entries(ownership)
+    .filter(([, count]) => count > 0)
+    .map(([bromideId, count]) => ({
+      user_id: userId,
+      bromide_id: bromideId,
+      count,
+      updated_at: new Date().toISOString()
+    }));
+  if (rows.length === 0) return;
+  const { error } = await sb.from('ownership').insert(rows);
+  if (error) throw error;
 }

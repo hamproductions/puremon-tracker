@@ -1,4 +1,8 @@
+import { useEffect, useMemo, useState } from 'react';
+import { fetchOwnershipRemote, replaceOwnershipRemote, setOwnershipRemote } from '~/data/remote';
 import { ownershipStore, useStore } from '~/data/store';
+import { hasE2EProfile } from '~/lib/e2eAuth';
+import { getSupabase, isSupabaseConfigured } from '~/lib/supabase';
 import type { OwnershipMap } from '~/types';
 
 function withCount(map: OwnershipMap, id: string, count: number): OwnershipMap {
@@ -9,23 +13,90 @@ function withCount(map: OwnershipMap, id: string, count: number): OwnershipMap {
 }
 
 export function useOwnership() {
-  const ownership = useStore(ownershipStore);
+  const localOwnership = useStore(ownershipStore);
+  const [remoteUserId, setRemoteUserId] = useState<string | null>(null);
+  const [remoteOwnership, setRemoteOwnership] = useState<OwnershipMap | null>(null);
+  const remote = Boolean(remoteUserId);
+  const ownership = remote ? (remoteOwnership ?? {}) : localOwnership;
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || hasE2EProfile()) return;
+    const sb = getSupabase();
+    if (!sb) return;
+    let cancelled = false;
+    const load = async () => {
+      const {
+        data: { session }
+      } = await sb.auth.getSession();
+      if (cancelled) return;
+      const userId = session?.user.id ?? null;
+      setRemoteUserId(userId);
+      if (!userId) {
+        setRemoteOwnership(null);
+        return;
+      }
+      const next = await fetchOwnershipRemote();
+      if (!cancelled) setRemoteOwnership(next ?? {});
+    };
+    void load();
+    const {
+      data: { subscription }
+    } = sb.auth.onAuthStateChange(() => {
+      void load();
+    });
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const updateRemote = (fn: (map: OwnershipMap) => OwnershipMap) => {
+    setRemoteOwnership((map) => fn(map ?? {}));
+  };
 
   const setCount = (id: string, count: number) => {
-    ownershipStore.update((map) => withCount(map, id, Math.max(0, Math.floor(count))));
+    const nextCount = Math.max(0, Math.floor(count));
+    if (remote) {
+      updateRemote((map) => withCount(map, id, nextCount));
+      void setOwnershipRemote(id, nextCount).catch((e) =>
+        console.error('ownership sync failed', e)
+      );
+      return;
+    }
+    ownershipStore.update((map) => withCount(map, id, nextCount));
   };
 
   const increment = (id: string, delta = 1) => {
-    ownershipStore.update((map) => withCount(map, id, Math.max(0, (map[id] ?? 0) + delta)));
+    setCount(id, Math.max(0, (ownership[id] ?? 0) + delta));
   };
 
   const toggle = (id: string) => {
-    ownershipStore.update((map) => withCount(map, id, (map[id] ?? 0) > 0 ? 0 : 1));
+    setCount(id, (ownership[id] ?? 0) > 0 ? 0 : 1);
   };
 
-  const clearAll = () => ownershipStore.set({});
+  const clearAll = () => {
+    if (remote) {
+      setRemoteOwnership({});
+      void replaceOwnershipRemote({}).catch((e) => console.error('ownership sync failed', e));
+      return;
+    }
+    ownershipStore.set({});
+  };
 
   const importMerge = (incoming: OwnershipMap, mode: 'max' | 'replace' = 'max') => {
+    if (remote) {
+      const base = mode === 'replace' ? {} : ownership;
+      const next = { ...base };
+      for (const [id, count] of Object.entries(incoming)) {
+        next[id] = mode === 'replace' ? count : Math.max(next[id] ?? 0, count);
+      }
+      const clean = Object.fromEntries(
+        Object.entries(next).filter(([, count]) => count > 0)
+      ) as OwnershipMap;
+      setRemoteOwnership(clean);
+      void replaceOwnershipRemote(clean).catch((e) => console.error('ownership sync failed', e));
+      return;
+    }
     ownershipStore.update((map) => {
       if (mode === 'replace') return { ...incoming };
       const next = { ...map };
@@ -36,7 +107,10 @@ export function useOwnership() {
     });
   };
 
-  return { ownership, setCount, increment, toggle, clearAll, importMerge };
+  return useMemo(
+    () => ({ ownership, setCount, increment, toggle, clearAll, importMerge }),
+    [ownership, remote]
+  );
 }
 
 export function countOf(ownership: OwnershipMap, id: string): number {
