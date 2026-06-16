@@ -16,6 +16,7 @@ interface CollectionRow {
   member_ids: string[] | null;
   numbers: number[] | null;
   sizes: string[] | null;
+  slots: Collection['slots'] | null;
   items: Collection['items'] | null;
   created_at: string;
 }
@@ -50,6 +51,7 @@ function toCollection(r: CollectionRow): Collection {
     memberIds: r.member_ids ?? [],
     numbers: r.numbers ?? [],
     sizes: r.sizes && r.sizes.length > 0 ? r.sizes : undefined,
+    slots: r.slots ?? undefined,
     items: r.items ?? undefined,
     createdAt: r.created_at
   };
@@ -65,6 +67,7 @@ function fromCollection(c: Collection): CollectionRow {
     member_ids: c.memberIds,
     numbers: c.numbers,
     sizes: c.sizes ?? null,
+    slots: c.slots ?? null,
     items: c.items ?? null,
     created_at: c.createdAt
   };

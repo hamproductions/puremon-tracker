@@ -168,19 +168,43 @@ export function buildBromides(collection: Collection): Bromide[] {
   const createdAt = collection.createdAt;
   const sizes = collectionSizes(collection);
 
-  if (collection.kind === 'mixed') {
-    const items = collection.items ?? [];
-    return sizes.flatMap((size) =>
-      items.map((it) => ({
-        id: bromideId(collection.id, it.memberId, it.no, size, it.type),
+  if (collection.slots?.length) {
+    return collection.slots.map((it) => {
+      const legacyId = bromideId(collection.id, it.memberId, it.no, it.size ?? null, it.type);
+      const id = it.slotId ?? legacyId;
+      const legacyIds = [...new Set([legacyId, ...(it.legacyIds ?? [])])].filter((x) => x !== id);
+      return {
+        id,
+        legacyIds,
         collectionId: collection.id,
         memberId: it.memberId,
-        size,
+        size: it.size ?? null,
         no: it.no,
         type: it.type,
         label: it.label,
         createdAt
-      }))
+      };
+    });
+  }
+
+  if (collection.kind === 'mixed') {
+    const items = collection.items ?? [];
+    return sizes.flatMap((size) =>
+      items.map((it) => {
+        const legacyId = bromideId(collection.id, it.memberId, it.no, size, it.type);
+        const id = it.slotId ?? legacyId;
+        return {
+          id,
+          legacyIds: [...new Set([legacyId, ...(it.legacyIds ?? [])])].filter((x) => x !== id),
+          collectionId: collection.id,
+          memberId: it.memberId,
+          size,
+          no: it.no,
+          type: it.type,
+          label: it.label,
+          createdAt
+        };
+      })
     );
   }
 
@@ -189,6 +213,7 @@ export function buildBromides(collection: Collection): Bromide[] {
     memberIds.flatMap((memberId) =>
       collection.numbers.map((no) => ({
         id: bromideId(collection.id, memberId, no, size),
+        legacyIds: [],
         collectionId: collection.id,
         memberId,
         size,

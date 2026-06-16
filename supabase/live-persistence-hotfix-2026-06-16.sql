@@ -30,3 +30,6 @@ create policy "owner manages own preferences"
   on public.user_preferences for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+alter table public.collections
+  add column if not exists slots jsonb;

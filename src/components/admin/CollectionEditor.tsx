@@ -8,11 +8,13 @@ import { Heading } from '~/components/ui/heading';
 import { Input } from '~/components/ui/input';
 import { NumberInput } from '~/components/ui/number-input';
 import { SegmentGroup } from '~/components/ui/segment-group';
+import { Table } from '~/components/ui/table';
 import { Text } from '~/components/ui/text';
 import { Textarea } from '~/components/ui/textarea';
 import { useToaster } from '~/context/ToasterContext';
 import { catalogActions } from '~/hooks/useCatalog';
-import { seedCatalog } from '~/data/catalog';
+import { bromideId, buildBromides, collectionSizes, seedCatalog } from '~/data/catalog';
+import { formatReleaseDate, kindLabel, memberCountLabel } from '~/components/collection/format';
 import type { BromideSpec, Catalog, Collection, CollectionKind, Member } from '~/types';
 
 const SEED_IDS = new Set(seedCatalog.collections.map((c) => c.id));
@@ -24,6 +26,18 @@ const KIND_ITEMS: { value: CollectionKind; label: string }[] = [
 ];
 
 const GROUP_VALUE = '__group__';
+
+function newSlotId(collectionId: string): string {
+  const id =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  return `${collectionId}:slot:${id}`;
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
+}
 
 function slugify(title: string): string {
   const base = title
@@ -75,6 +89,40 @@ function emptyForm(members: Member[]): FormState {
     addMemberId: members[0]?.id ?? null,
     addNo: 1
   };
+}
+
+function buildStableSlots(collection: Collection, previous: Collection | null): BromideSpec[] {
+  const previousByLegacy = new Map<string, { id: string; legacyIds: string[] }>();
+  if (previous) {
+    for (const b of buildBromides(previous)) {
+      previousByLegacy.set(b.id, { id: b.id, legacyIds: b.legacyIds });
+      for (const legacyId of b.legacyIds) previousByLegacy.set(legacyId, b);
+    }
+  }
+
+  const specs: BromideSpec[] =
+    collection.kind === 'mixed'
+      ? collectionSizes(collection).flatMap((size) =>
+          (collection.items ?? []).map((it) => ({ ...it, size }))
+        )
+      : collectionSizes(collection).flatMap((size) =>
+          (collection.kind === 'flat' ? [null] : collection.memberIds).flatMap((memberId) =>
+            collection.numbers.map((no) => ({ memberId, size, no }))
+          )
+        );
+
+  return specs.map((spec) => {
+    const legacyId = bromideId(collection.id, spec.memberId, spec.no, spec.size ?? null, spec.type);
+    const previousSlot = previousByLegacy.get(legacyId);
+    const slotId = previousSlot?.id ?? newSlotId(collection.id);
+    return {
+      ...spec,
+      slotId,
+      legacyIds: unique([legacyId, ...(previousSlot?.legacyIds ?? [])]).filter(
+        (id) => id !== slotId
+      )
+    };
+  });
 }
 
 export function CollectionEditor({
@@ -181,7 +229,7 @@ export function CollectionEditor({
       sizes: sizes.length > 0 ? sizes : undefined,
       createdAt: editing?.createdAt ?? new Date().toISOString()
     };
-    const collection: Collection =
+    const collectionWithoutSlots: Collection =
       form.kind === 'mixed'
         ? {
             ...base,
@@ -201,6 +249,10 @@ export function CollectionEditor({
             memberIds: form.kind === 'flat' ? [] : selectedMembers.map((m) => m.id),
             numbers: Array.from({ length: form.count }, (_, i) => i + 1)
           };
+    const collection: Collection = {
+      ...collectionWithoutSlots,
+      slots: buildStableSlots(collectionWithoutSlots, editing)
+    };
     catalogActions.upsertCollection(collection);
     toast({ title: editing ? '更新しました' : '作成しました', type: 'success' });
     setEditing(null);
@@ -244,72 +296,104 @@ export function CollectionEditor({
         </Button>
       </HStack>
 
-      <Stack gap="2">
-        {catalog.collections.map((c) => {
-          const custom = !SEED_IDS.has(c.id);
-          const canDelete = true;
-          return (
-            <HStack
-              key={c.id}
-              gap="3"
-              borderColor={editing?.id === c.id && dialogOpen ? 'accent.default' : 'board.border'}
-              borderRadius="lg"
-              borderWidth="1px"
-              p="3"
-              bgColor="board.panel"
-            >
-              <Stack flex="1" gap="1" minW="0">
-                <HStack gap="2" flexWrap="wrap">
-                  <Text fontSize="sm" fontWeight="bold" truncate>
-                    {c.title}
-                  </Text>
-                  <Badge
-                    size="sm"
-                    variant="subtle"
-                    colorPalette={
-                      c.kind === 'member_grid' ? 'pink' : c.kind === 'mixed' ? 'red' : 'gray'
-                    }
-                  >
-                    {c.kind === 'member_grid'
-                      ? 'メンバー × 番号'
-                      : c.kind === 'mixed'
-                        ? '自由リスト'
-                        : '番号のみ'}
-                  </Badge>
-                  {custom ? (
-                    <Badge size="sm" variant="outline" colorPalette="amber">
-                      カスタム
+      <Box borderColor="board.border" borderRadius="lg" borderWidth="1px" overflowX="auto">
+        <Table.Root minW="760px">
+          <Table.Head>
+            <Table.Row>
+              <Table.Header>タイトル</Table.Header>
+              <Table.Header>種別</Table.Header>
+              <Table.Header>発売日</Table.Header>
+              <Table.Header>対象</Table.Header>
+              <Table.Header>番号/点数</Table.Header>
+              <Table.Header>サイズ</Table.Header>
+              <Table.Header>総枚数</Table.Header>
+              <Table.Header>状態</Table.Header>
+              <Table.Header textAlign="right">操作</Table.Header>
+            </Table.Row>
+          </Table.Head>
+          <Table.Body>
+            {catalog.collections.map((c) => {
+              const custom = !SEED_IDS.has(c.id);
+              const active = editing?.id === c.id && dialogOpen;
+              const total = catalog.bromides.filter((b) => b.collectionId === c.id).length;
+              return (
+                <Table.Row key={c.id} bgColor={active ? 'accent.subtle' : undefined}>
+                  <Table.Cell>
+                    <Stack gap="0.5" minW="180px">
+                      <Text fontSize="sm" fontWeight="bold" truncate>
+                        {c.title}
+                      </Text>
+                      {c.description ? (
+                        <Text color="fg.muted" fontSize="xs" truncate>
+                          {c.description}
+                        </Text>
+                      ) : null}
+                    </Stack>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Badge
+                      size="sm"
+                      variant="subtle"
+                      colorPalette={
+                        c.kind === 'member_grid' ? 'pink' : c.kind === 'mixed' ? 'red' : 'gray'
+                      }
+                    >
+                      {kindLabel(c.kind)}
                     </Badge>
-                  ) : null}
-                </HStack>
-                <Text color="fg.muted" fontSize="xs">
-                  {c.kind === 'mixed'
-                    ? `${c.items?.length ?? 0}枚`
-                    : `${c.numbers.length}番号${c.kind === 'member_grid' ? ` × ${c.memberIds.length}人` : ''}`}
-                  {c.sizes?.length ? ` × ${c.sizes.length}サイズ` : ''}
-                </Text>
-              </Stack>
-              <HStack gap="1">
-                <Button size="sm" variant="outline" onClick={() => startEdit(c)}>
-                  <FaPenToSquare />
-                  編集
-                </Button>
-                {canDelete ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setPendingDelete(c)}
-                    colorPalette="red"
-                  >
-                    <FaTrash />
-                    削除
-                  </Button>
-                ) : null}
-              </HStack>
-            </HStack>
-          );
-        })}
-      </Stack>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text color="fg.muted" fontSize="sm" whiteSpace="nowrap">
+                      {formatReleaseDate(c.releaseDate) ?? '未設定'}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text fontSize="sm" whiteSpace="nowrap">
+                      {memberCountLabel(c)}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text fontSize="sm" fontVariantNumeric="tabular-nums" whiteSpace="nowrap">
+                      {c.kind === 'mixed' ? `${c.items?.length ?? 0}点` : `${c.numbers.length}番号`}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text color="fg.muted" fontSize="sm" whiteSpace="nowrap">
+                      {c.sizes?.length ? c.sizes.join(', ') : 'なし'}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text fontSize="sm" fontVariantNumeric="tabular-nums" whiteSpace="nowrap">
+                      {total}枚
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Badge size="sm" variant={custom ? 'outline' : 'subtle'} colorPalette="amber">
+                      {custom ? 'カスタム' : '初期データ'}
+                    </Badge>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <HStack gap="1" justifyContent="flex-end">
+                      <Button size="sm" variant="outline" onClick={() => startEdit(c)}>
+                        <FaPenToSquare />
+                        編集
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setPendingDelete(c)}
+                        colorPalette="red"
+                      >
+                        <FaTrash />
+                        削除
+                      </Button>
+                    </HStack>
+                  </Table.Cell>
+                </Table.Row>
+              );
+            })}
+          </Table.Body>
+        </Table.Root>
+      </Box>
 
       <Dialog.Root
         open={dialogOpen}

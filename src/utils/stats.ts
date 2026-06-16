@@ -1,4 +1,3 @@
-import { bromideId } from '~/data/catalog';
 import type { Bromide, Catalog, Collection, Member, OwnershipMap } from '~/types';
 
 export function memberMap(catalog: Catalog): Map<string, Member> {
@@ -63,7 +62,6 @@ export function buildGrid(catalog: Catalog, collection: Collection, size?: strin
     };
   }
   const mm = memberMap(catalog);
-  const byId = new Map(inSize.map((b) => [b.id, b]));
   const members = collection.memberIds
     .map((id) => mm.get(id))
     .filter((m): m is Member => Boolean(m))
@@ -76,7 +74,8 @@ export function buildGrid(catalog: Catalog, collection: Collection, size?: strin
     sizes,
     hasSizes,
     size: activeSize,
-    cell: (memberId, no) => byId.get(bromideId(collection.id, memberId, no, activeSize))
+    cell: (memberId, no) =>
+      inSize.find((b) => b.memberId === memberId && b.no === no && b.size === activeSize)
   };
 }
 
@@ -88,11 +87,24 @@ export interface OwnStats {
   percent: number;
 }
 
+export function bromideCount(
+  ownership: OwnershipMap,
+  bromide: Pick<Bromide, 'id' | 'legacyIds'>
+): number {
+  const direct = ownership[bromide.id];
+  if (direct !== undefined) return direct;
+  for (const id of bromide.legacyIds) {
+    const count = ownership[id];
+    if (count !== undefined) return count;
+  }
+  return 0;
+}
+
 function statsFor(bromides: Bromide[], ownership: OwnershipMap): OwnStats {
   let owned = 0;
   let duplicates = 0;
   for (const b of bromides) {
-    const c = ownership[b.id] ?? 0;
+    const c = bromideCount(ownership, b);
     if (c >= 1) owned += 1;
     if (c >= 2) duplicates += c - 1;
   }
@@ -125,7 +137,7 @@ export function missingBromides(
   collectionId?: string
 ): Bromide[] {
   return catalog.bromides.filter(
-    (b) => (!collectionId || b.collectionId === collectionId) && (ownership[b.id] ?? 0) === 0
+    (b) => (!collectionId || b.collectionId === collectionId) && bromideCount(ownership, b) === 0
   );
 }
 
@@ -141,7 +153,7 @@ export function duplicateBromides(
 ): DuplicateEntry[] {
   return catalog.bromides
     .filter((b) => !collectionId || b.collectionId === collectionId)
-    .map((b) => ({ bromide: b, count: ownership[b.id] ?? 0 }))
+    .map((b) => ({ bromide: b, count: bromideCount(ownership, b) }))
     .filter((e) => e.count >= 2);
 }
 

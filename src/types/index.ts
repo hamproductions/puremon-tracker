@@ -16,10 +16,14 @@ export interface Group {
 export type CollectionKind = 'member_grid' | 'flat' | 'mixed';
 
 export interface BromideSpec {
+  slotId?: string;
+  legacyIds?: string[];
   memberId: string | null;
+  size?: string | null;
   no: number;
   type?: string;
   label?: string;
+  aspect?: number;
 }
 
 export interface Collection {
@@ -32,12 +36,14 @@ export interface Collection {
   memberIds: string[];
   numbers: number[];
   sizes?: string[];
+  slots?: BromideSpec[];
   items?: BromideSpec[];
   createdAt: string;
 }
 
 export interface Bromide {
   id: string;
+  legacyIds: string[];
   collectionId: string;
   memberId: string | null;
   size: string | null;

@@ -24,7 +24,7 @@ import { useAuth } from '~/hooks/useAuth';
 import { catalogActions } from '~/hooks/useCatalog';
 import { useUserPreference } from '~/hooks/useUserPreference';
 import type { Bromide, Catalog, Collection, Member } from '~/types';
-import { buildGrid, collectionStats, memberMap, slotLabel } from '~/utils/stats';
+import { bromideCount, buildGrid, collectionStats, memberMap, slotLabel } from '~/utils/stats';
 import { toAppUrl } from '~/utils/url';
 import { formatReleaseDate, kindLabel, memberCountLabel } from './format';
 
@@ -169,15 +169,16 @@ export function CollectionDetail({
   const date = formatReleaseDate(collection.releaseDate);
   const isComplete = mounted && stats.percent === 100;
 
-  const countOf = (id: string) => ownership[id] ?? 0;
-  const shouldShow = (id?: string) => !missingOnly || !mounted || (id ? countOf(id) === 0 : true);
+  const countOf = (bromide: Bromide) => bromideCount(ownership, bromide);
+  const shouldShow = (bromide?: Bromide) =>
+    !missingOnly || !mounted || (bromide ? countOf(bromide) === 0 : true);
 
   const memberVisible =
     grid.kind !== 'member_grid' ||
     grid.numbers.some((no) =>
       grid.members.some((m) => {
         const b = grid.cell(m.id, no);
-        return b ? shouldShow(b.id) : false;
+        return b ? shouldShow(b) : false;
       })
     );
 
@@ -583,7 +584,7 @@ interface GridViewProps {
   ownership: Record<string, number>;
   toggle: (id: string) => void;
   setCount: (id: string, n: number) => void;
-  shouldShow: (id?: string) => boolean;
+  shouldShow: (bromide?: Bromide) => boolean;
   adminEdit?: boolean;
   requestImage?: (id: string) => void;
   removeImage?: (b: Bromide) => void;
@@ -612,7 +613,7 @@ function MemberGridTable({
   const visibleNumbers = grid.numbers.filter((no) =>
     grid.members.some((m) => {
       const b = grid.cell(m.id, no);
-      return b && shouldShow(b.id);
+      return b && shouldShow(b);
     })
   );
 
@@ -686,7 +687,7 @@ function MemberGridTable({
             </Center>
             {grid.members.map((m) => {
               const b = grid.cell(m.id, no);
-              const show = b ? shouldShow(b.id) : false;
+              const show = b ? shouldShow(b) : false;
               return (
                 <Box
                   key={m.id}
@@ -699,7 +700,7 @@ function MemberGridTable({
                     <BromideTile
                       bromide={b}
                       member={m}
-                      count={ownership[b.id] ?? 0}
+                      count={bromideCount(ownership, b)}
                       onToggle={() => toggle(b.id)}
                       onSetCount={(n) => setCount(b.id, n)}
                       size="sm"
@@ -764,7 +765,7 @@ function MemberSections({
       {grid.members.map((m) => {
         const cells = grid.numbers
           .map((no) => grid.cell(m.id, no))
-          .filter((b): b is Bromide => Boolean(b) && shouldShow(b?.id));
+          .filter((b): b is Bromide => Boolean(b) && shouldShow(b));
         if (cells.length === 0) return null;
         return (
           <Stack
@@ -791,7 +792,7 @@ function MemberSections({
                   <BromideTile
                     bromide={b}
                     member={m}
-                    count={ownership[b.id] ?? 0}
+                    count={bromideCount(ownership, b)}
                     onToggle={() => toggle(b.id)}
                     onSetCount={(n) => setCount(b.id, n)}
                     label={slotLabel(b)}
@@ -834,7 +835,7 @@ function FlatGridView({
   onRemoveItem,
   onAddCard
 }: FlatGridProps) {
-  const visible = adminEdit ? bromides : bromides.filter((b) => shouldShow(b.id));
+  const visible = adminEdit ? bromides : bromides.filter((b) => shouldShow(b));
   const mm = memberMap(catalog);
   if (visible.length === 0 && !onAddCard) {
     return <EmptyState missingOnly={bromides.length > 0} />;
@@ -853,7 +854,7 @@ function FlatGridView({
             <BromideTile
               bromide={b}
               member={member}
-              count={ownership[b.id] ?? 0}
+              count={bromideCount(ownership, b)}
               onToggle={() => toggle(b.id)}
               onSetCount={(n) => setCount(b.id, n)}
               label={member ? `${member.name} ${slotLabel(b)}` : `集合 ${slotLabel(b)}`}

@@ -13,6 +13,13 @@ function withCount(map: OwnershipMap, id: string, count: number): OwnershipMap {
   return next;
 }
 
+export function mergeOwnershipForLogin(
+  anonymous: OwnershipMap,
+  remote: OwnershipMap
+): OwnershipMap {
+  return { ...anonymous, ...remote };
+}
+
 export function useOwnership() {
   const localOwnership = useStore(ownershipStore);
   const [remoteUserId, setRemoteUserId] = useState<string | null>(null);
@@ -36,9 +43,15 @@ export function useOwnership() {
         setRemoteOwnership(null);
         return;
       }
-      clearAnonymousOwnershipState();
       const next = await fetchOwnershipRemote();
-      if (!cancelled) setRemoteOwnership(next ?? {});
+      if (cancelled) return;
+      const anonymous = ownershipStore.get();
+      const merged = mergeOwnershipForLogin(anonymous, next ?? {});
+      setRemoteOwnership(merged);
+      if (Object.keys(anonymous).length > 0) {
+        void replaceOwnershipRemote(merged).catch((e) => console.error('ownership sync failed', e));
+      }
+      clearAnonymousOwnershipState();
     };
     void load();
     const {

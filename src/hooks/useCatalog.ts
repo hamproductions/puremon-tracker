@@ -43,9 +43,10 @@ export function buildMergedCatalog(
     .sort((a, b) => (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''));
   const images =
     options.includeLocalImages === false ? baseImages : { ...baseImages, ...localImages };
-  const bromides = collections
-    .flatMap(buildBromides)
-    .map((b) => (images[b.id] ? { ...b, imageUrl: images[b.id] } : b));
+  const bromides = collections.flatMap(buildBromides).map((b) => {
+    const imageUrl = [b.id, ...b.legacyIds].map((id) => images[id]).find(Boolean);
+    return imageUrl ? { ...b, imageUrl } : b;
+  });
   return { group: seedCatalog.group, members, collections, bromides };
 }
 

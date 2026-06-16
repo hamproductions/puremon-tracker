@@ -79,5 +79,13 @@ describe('supabase policies', () => {
     expect(sql).toContain('create policy "owner manages own oshi"');
     expect(sql).toContain('create table if not exists public.user_preferences');
     expect(sql).toContain('create policy "owner manages own preferences"');
+    expect(sql).toContain('add column if not exists slots jsonb');
+  });
+
+  test('adds stable bromide slots to collections', () => {
+    const sql = migration('0008_stable_bromide_slots.sql');
+
+    expect(sql).toContain('alter table public.collections');
+    expect(sql).toContain('add column if not exists slots jsonb');
   });
 });

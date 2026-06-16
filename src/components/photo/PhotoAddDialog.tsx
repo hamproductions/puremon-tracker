@@ -26,10 +26,9 @@ import { uploadBromideImage } from '~/lib/storage';
 import { createImageSubmission, saveImageSubmission } from '~/lib/submissions';
 import type { Bromide, Catalog, Collection } from '~/types';
 import { bromideLabel, bromidesByCollection, memberColor } from '~/utils/stats';
+import { CROP_MODES, cropModeAspect, type CropMode } from './cropModes';
 import { getCroppedBlob } from './cropImage';
 import { scanDocument } from './documentScanner';
-
-const ASPECT = 3 / 4;
 
 const Img = styled('img');
 
@@ -134,6 +133,7 @@ function PhotoAddBody({
   const [picked, setPicked] = useState<PickedImage[]>([]);
   const [cropIndex, setCropIndex] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
+  const [cropMode, setCropMode] = useState<CropMode>('portrait');
 
   const toggleTarget = (id: string) => {
     setTouched(true);
@@ -153,6 +153,7 @@ function PhotoAddBody({
       setPicked(next);
       setCropIndex(0);
       setSavedCount(0);
+      setCropMode('portrait');
       setPhase('cropping');
     });
   };
@@ -181,7 +182,7 @@ function PhotoAddBody({
             </Text>
           ) : (
             <Text color="fg.muted" fontSize="xs">
-              登録先を選んで写真をトリミングします
+              写真を選んで、登録先と切り抜きを確認します
             </Text>
           )}
         </Stack>
@@ -216,6 +217,8 @@ function PhotoAddBody({
           queueBromides={queueBromides}
           savedCount={savedCount}
           setSavedCount={setSavedCount}
+          cropMode={cropMode}
+          setCropMode={setCropMode}
           onFinish={finishBatch}
           profile={profile}
           adminEdit={adminEdit}
@@ -266,6 +269,72 @@ function SetupStep({
 
   return (
     <Stack flex="1" gap="4" px="4" pb="4" overflowY="auto">
+      <styled.input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={(e) => {
+          if (e.target.files) onFilesPicked(e.target.files);
+          e.target.value = '';
+        }}
+        display="none"
+      />
+
+      <Box
+        as="button"
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e: React.DragEvent) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e: React.DragEvent) => {
+          e.preventDefault();
+          setDragOver(false);
+          if (e.dataTransfer.files?.length) onFilesPicked(e.dataTransfer.files);
+        }}
+        cursor="pointer"
+        display="flex"
+        gap="1.5"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        borderColor={dragOver ? 'accent.default' : 'accent.default'}
+        borderRadius="xl"
+        borderWidth="2px"
+        w="full"
+        minH="160px"
+        py="7"
+        px="4"
+        textAlign="center"
+        bgColor={dragOver ? 'board.tile' : 'accent.subtle'}
+        transition="colors"
+        borderStyle="dashed"
+        _hover={{ borderColor: 'accent.default', bgColor: 'board.tile' }}
+      >
+        <Center borderRadius="full" w="11" h="11" color="accent.text" bgColor="board.tile">
+          <FaImage size={20} />
+        </Center>
+        <Text fontSize="md" fontWeight="bold">
+          写真を選ぶ
+        </Text>
+        <Text color="fg.muted" fontSize="xs">
+          先に写真を選択します。登録先は下で変更できます。
+        </Text>
+      </Box>
+
+      <HStack gap="2" justifyContent="space-between" alignItems="center" flexWrap="wrap">
+        <Text color="fg.muted" fontSize="xs">
+          {queueBromides.length > 0
+            ? `最初の登録先: ${bromideLabel(catalog, queueBromides[0])}`
+            : '登録先を1枚以上選んでください'}
+        </Text>
+        <Button size="sm" onClick={() => inputRef.current?.click()} disabled={queue.length === 0}>
+          写真を選ぶ
+        </Button>
+      </HStack>
+
       {hasSizes && (
         <Stack gap="1.5">
           <Text color="fg.muted" fontSize="xs" fontWeight="bold">
@@ -411,71 +480,6 @@ function SetupStep({
           </Text>
         </Box>
       )}
-
-      <styled.input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={(e) => {
-          if (e.target.files) onFilesPicked(e.target.files);
-          e.target.value = '';
-        }}
-        display="none"
-      />
-
-      <Box
-        as="button"
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(e: React.DragEvent) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e: React.DragEvent) => {
-          e.preventDefault();
-          setDragOver(false);
-          if (e.dataTransfer.files?.length) onFilesPicked(e.dataTransfer.files);
-        }}
-        cursor="pointer"
-        display="flex"
-        gap="1.5"
-        flexDirection="column"
-        justifyContent="center"
-        alignItems="center"
-        borderColor={dragOver ? 'accent.default' : 'board.border'}
-        borderRadius="xl"
-        borderWidth="2px"
-        w="full"
-        py="6"
-        px="4"
-        textAlign="center"
-        bgColor={dragOver ? 'board.tile' : 'board.canvas'}
-        transition="colors"
-        borderStyle="dashed"
-        _hover={{ borderColor: 'accent.default', bgColor: 'board.tile' }}
-      >
-        <Center borderRadius="full" w="11" h="11" color="accent.text" bgColor="board.tile">
-          <FaImage size={20} />
-        </Center>
-        <Text fontSize="sm" fontWeight="bold">
-          写真を選ぶ
-        </Text>
-        <Text color="fg.muted" fontSize="xs">
-          タップしてカメラ / ライブラリから選択。複数まとめて選べます。
-        </Text>
-      </Box>
-
-      <HStack gap="2" justifyContent="space-between" alignItems="center" flexWrap="wrap">
-        <Text color="fg.muted" fontSize="xs">
-          {queueBromides.length > 0
-            ? `次の登録先: ${bromideLabel(catalog, queueBromides[0])}`
-            : '登録先を1枚以上選んでください'}
-        </Text>
-        <Button size="sm" onClick={() => inputRef.current?.click()} disabled={queue.length === 0}>
-          写真を選ぶ
-        </Button>
-      </HStack>
     </Stack>
   );
 }
@@ -488,6 +492,8 @@ function CropStep({
   queueBromides,
   savedCount,
   setSavedCount,
+  cropMode,
+  setCropMode,
   onFinish,
   profile,
   adminEdit
@@ -499,6 +505,8 @@ function CropStep({
   queueBromides: Bromide[];
   savedCount: number;
   setSavedCount: (n: number) => void;
+  cropMode: CropMode;
+  setCropMode: (mode: CropMode) => void;
   onFinish: (saved: number) => void;
   profile: ReturnType<typeof useAuth>['profile'];
   adminEdit: boolean;
@@ -593,6 +601,7 @@ function CropStep({
   };
 
   const activeSrc = scannedSrc ?? current.src;
+  const aspect = cropModeAspect(cropMode);
 
   const confirm = async () => {
     if (!areaPixels || !target) return;
@@ -627,7 +636,7 @@ function CropStep({
         <Cropper
           image={activeSrc}
           crop={crop}
-          aspect={ASPECT}
+          aspect={aspect}
           minZoom={1}
           maxZoom={5}
           restrictPosition={false}
@@ -650,7 +659,7 @@ function CropStep({
           right="3"
         >
           <FaWandMagicSparkles />
-          自動スキャン
+          書類トリム
         </Button>
         {scanning && (
           <Center
@@ -665,7 +674,7 @@ function CropStep({
           >
             <Spinner size="lg" />
             <Text maxW="260px" color="fg.muted" fontSize="xs">
-              書類のフチを検出中…（初回は読み込みに時間がかかります）
+              写真の外枠を検出中…（初回は読み込みに時間がかかります）
             </Text>
             <Button size="sm" variant="outline" onClick={cancelScan} colorPalette="gray">
               <FaXmark />
@@ -704,6 +713,21 @@ function CropStep({
             {cropIndex + 1} / {picked.length}
           </Badge>
         </HStack>
+
+        <SegmentGroup.Root
+          value={cropMode}
+          onValueChange={(e) => setCropMode(e.value as CropMode)}
+          size="sm"
+        >
+          <SegmentGroup.Indicator />
+          {CROP_MODES.map((item) => (
+            <SegmentGroup.Item key={item.value} value={item.value}>
+              <SegmentGroup.ItemText>{item.label}</SegmentGroup.ItemText>
+              <SegmentGroup.ItemControl />
+              <SegmentGroup.ItemHiddenInput />
+            </SegmentGroup.Item>
+          ))}
+        </SegmentGroup.Root>
 
         <HStack gap="2.5" alignItems="center">
           <FaMagnifyingGlassPlus size={14} color="var(--colors-fg-muted)" />

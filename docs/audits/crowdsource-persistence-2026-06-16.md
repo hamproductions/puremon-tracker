@@ -86,3 +86,39 @@ GET /rest/v1/oshi?... 404
 ```
 
 Conclusion: authenticated ownership persistence is live; selected oshi and collection view preference persistence cannot pass on the deployed project until `public.oshi` and `public.user_preferences` exist. Profile RLS is also still unsafe until the profile policy hotfix is applied.
+
+## 2026-06-16 repair slice evidence
+
+Implemented and verified locally:
+
+- Upload setup now starts with the file picker/drop zone, with target selection below it.
+- Cropper now exposes portrait, landscape, square, and free crop modes.
+- The scanner action is labeled as document trim instead of implying it replaces final crop.
+- Admin collection management uses a dense table instead of card rows.
+- Anonymous ownership is merged into authenticated ownership on login, with server values winning conflicts.
+- Collection slots can carry stable `slotId` plus `legacyIds`, so images and ownership can resolve legacy IDs after view-setting changes.
+- Admin collection saves now serialize stable `slots`; existing slots are reconciled by legacy ID where possible.
+
+Local verification:
+
+```text
+bun test: 19 pass
+bun run type-check: pass
+bun run lint: pass with existing Panda warnings in src/pages/+Layout.tsx
+bun run build: pass
+```
+
+Browser evidence:
+
+- `dogfood-output/repair-slice-2026-06-16/screenshots/admin-table.png`
+- `dogfood-output/repair-slice-2026-06-16/screenshots/upload-modal-file-first.png`
+- `dogfood-output/repair-slice-2026-06-16/screenshots/upload-crop-landscape-controls.png`
+- `dogfood-output/repair-slice-2026-06-16/screenshots/upload-crop-landscape-selected.png`
+- `dogfood-output/repair-slice-2026-06-16/screenshots/upload-crop-free-selected.png`
+
+Still not complete:
+
+- The live Supabase database still has not applied profile, oshi, user preference, or stable-slot SQL.
+- Full user/admin Supabase upload flow still needs post-SQL real DB proof.
+- Cross-user and cross-browser-session persistence still needs the full test matrix run after live DB migration.
+- The slot model is backward-compatible at the client/collection JSON layer, but a fuller server-side `bromide_slots` table would still be cleaner for long-term admin inventory management.
