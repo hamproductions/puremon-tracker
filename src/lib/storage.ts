@@ -54,15 +54,33 @@ export async function uploadBromideImage(
   return { url: publicUrl, mode: 'cloud' };
 }
 
-export async function deleteBromideImage(imageUrl: string | null | undefined): Promise<void> {
-  if (!imageUrl || hasE2EProfile()) return;
+export function bromideStoragePath(imageUrl: string | null | undefined): string | null {
+  if (!imageUrl) return null;
   const marker = '/object/public/bromides/';
   const idx = imageUrl.indexOf(marker);
-  if (idx === -1) return;
-  const path = decodeURIComponent(imageUrl.slice(idx + marker.length).split('?')[0]);
+  if (idx === -1) return null;
+  let path: string;
+  try {
+    path = decodeURIComponent(imageUrl.slice(idx + marker.length).split('?')[0]);
+  } catch {
+    return null;
+  }
+  if (!path || path.startsWith('/') || path.split('/').some((seg) => seg === '..')) return null;
+  return path;
+}
+
+export async function deleteBromideImage(imageUrl: string | null | undefined): Promise<void> {
+  if (hasE2EProfile()) return;
+  const path = bromideStoragePath(imageUrl);
   if (!path) return;
   const sb = getSupabase();
   if (!sb) return;
+  const { data: refs } = await sb
+    .from('bromide_images')
+    .select('bromide_id')
+    .eq('image_url', imageUrl)
+    .limit(1);
+  if (refs && refs.length > 0) return;
   await sb.storage.from('bromides').remove([path]);
 }
 

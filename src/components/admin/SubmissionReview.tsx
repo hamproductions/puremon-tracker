@@ -72,11 +72,20 @@ export function SubmissionReview({ catalog }: { catalog: Catalog }) {
   const pending = merged.filter((s) => s.status === 'pending');
   const processed = merged.filter((s) => s.status !== 'pending').slice(0, 12);
 
-  const setStatus = async (sub: Submission, status: SubmissionStatus) => {
+  const setStatus = async (sub: Submission, status: SubmissionStatus): Promise<boolean> => {
     const sb = getSupabase();
     if (sb && !hasE2EProfile()) {
-      const { error } = await sb.from('submissions').update({ status }).eq('id', sub.id);
+      const { data, error } = await sb
+        .from('submissions')
+        .update({ status })
+        .eq('id', sub.id)
+        .eq('status', 'pending')
+        .select('id');
       if (error) throw error;
+      if (!data || data.length === 0) {
+        setRemote((prev) => prev.filter((s) => s.id !== sub.id));
+        return false;
+      }
     }
 
     submissionsStore.update((prev) => {
@@ -85,17 +94,22 @@ export function SubmissionReview({ catalog }: { catalog: Catalog }) {
       return [{ ...sub, status }, ...prev];
     });
     setRemote((prev) => prev.filter((s) => s.id !== sub.id));
+    return true;
   };
 
   const approve = async (sub: Submission) => {
-    const saved = await catalogActions.setBromideImage(sub.bromideId, sub.imageUrl);
-    if (!saved) {
-      toast({ title: '承認に失敗しました', type: 'error' });
-      return;
-    }
     try {
-      await setStatus(sub, 'approved');
-      toast({ title: '承認しました', type: 'success' });
+      const changed = await setStatus(sub, 'approved');
+      if (!changed) {
+        toast({ title: 'この投稿はすでに処理済みです', type: 'info' });
+        return;
+      }
+      const saved = await catalogActions.setBromideImage(sub.bromideId, sub.imageUrl);
+      toast(
+        saved
+          ? { title: '承認しました', type: 'success' }
+          : { title: '承認に失敗しました', type: 'error' }
+      );
     } catch {
       toast({ title: '承認ステータスの更新に失敗しました', type: 'error' });
     }
@@ -103,9 +117,12 @@ export function SubmissionReview({ catalog }: { catalog: Catalog }) {
 
   const reject = async (sub: Submission) => {
     try {
-      await setStatus(sub, 'rejected');
-      await deleteBromideImage(sub.imageUrl);
-      toast({ title: '却下しました', type: 'info' });
+      const changed = await setStatus(sub, 'rejected');
+      if (changed) await deleteBromideImage(sub.imageUrl);
+      toast({
+        title: changed ? '却下しました' : 'この投稿はすでに処理済みです',
+        type: 'info'
+      });
     } catch {
       toast({ title: '却下に失敗しました', type: 'error' });
     }
