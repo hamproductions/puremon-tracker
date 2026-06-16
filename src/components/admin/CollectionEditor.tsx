@@ -7,7 +7,6 @@ import { Dialog } from '~/components/ui/dialog';
 import { Heading } from '~/components/ui/heading';
 import { Input } from '~/components/ui/input';
 import { NumberInput } from '~/components/ui/number-input';
-import { SegmentGroup } from '~/components/ui/segment-group';
 import { Table } from '~/components/ui/table';
 import { Text } from '~/components/ui/text';
 import { Textarea } from '~/components/ui/textarea';
@@ -20,10 +19,30 @@ import { formatAspect, parseAspect } from '~/utils/aspect';
 
 const SEED_IDS = new Set(seedCatalog.collections.map((c) => c.id));
 
-const KIND_ITEMS: { value: CollectionKind; label: string }[] = [
-  { value: 'member_grid', label: 'メンバー × 番号' },
-  { value: 'flat', label: '番号のみ' },
-  { value: 'mixed', label: '自由リスト' }
+const TEMPLATES: {
+  value: CollectionKind;
+  label: string;
+  hint: string;
+  example: string;
+}[] = [
+  {
+    value: 'member_grid',
+    label: 'メンバー別グリッド',
+    hint: 'メンバー × 番号で一括生成',
+    example: '例：7人 × 10番号 → 70枚'
+  },
+  {
+    value: 'flat',
+    label: '番号だけ',
+    hint: '集合写真など、番号のみで一括生成',
+    example: '例：41番号 → 41枚'
+  },
+  {
+    value: 'mixed',
+    label: '自由リスト',
+    hint: '1枚ずつ自由に並べる（番号の一括追加も可）',
+    example: '例：メンバー指定や特殊カード'
+  }
 ];
 
 const GROUP_VALUE = '__group__';
@@ -70,6 +89,8 @@ interface FormState {
   addMemberId: string | null;
   addNo: number;
   addAspectText: string;
+  bulkFrom: number;
+  bulkTo: number;
 }
 
 function parseSizes(value: string): string[] {
@@ -92,11 +113,13 @@ function emptyForm(members: Member[]): FormState {
     items: [],
     addMemberId: members[0]?.id ?? null,
     addNo: 1,
-    addAspectText: ''
+    addAspectText: '',
+    bulkFrom: 1,
+    bulkTo: 10
   };
 }
 
-function buildStableSlots(
+export function buildStableSlots(
   collection: Collection,
   previous: Collection | null,
   aspect?: number
@@ -184,7 +207,9 @@ export function CollectionEditor({
         })),
         addMemberId: catalog.members[0]?.id ?? null,
         addNo: 1,
-        addAspectText: ''
+        addAspectText: '',
+        bulkFrom: 1,
+        bulkTo: 10
       });
     } else {
       setForm(emptyForm(catalog.members));
@@ -239,6 +264,42 @@ export function CollectionEditor({
 
   const removeItem = (index: number) =>
     setForm((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
+
+  const addRange = () => {
+    setForm((prev) => {
+      const from = Math.min(prev.bulkFrom, prev.bulkTo);
+      const to = Math.max(prev.bulkFrom, prev.bulkTo);
+      const existing = new Set(prev.items.map((it) => `${it.memberId ?? GROUP_VALUE}:${it.no}`));
+      const added: BromideSpec[] = [];
+      for (let no = from; no <= to; no += 1) {
+        const key = `${prev.addMemberId ?? GROUP_VALUE}:${no}`;
+        if (existing.has(key)) continue;
+        existing.add(key);
+        added.push({ memberId: prev.addMemberId, no });
+      }
+      if (added.length === 0) {
+        toast({ title: 'その範囲はすべて追加済みです', type: 'error' });
+        return prev;
+      }
+      toast({ title: `${added.length}枚を追加しました`, type: 'success' });
+      return { ...prev, items: [...prev.items, ...added] };
+    });
+  };
+
+  const seedCount = useMemo(() => {
+    const sizeCount = Math.max(1, parseSizes(form.sizes).length);
+    if (form.kind === 'mixed') return form.items.length * sizeCount;
+    if (form.kind === 'flat') return form.count * sizeCount;
+    return selectedMembers.length * form.count * sizeCount;
+  }, [form.kind, form.items.length, form.sizes, form.count, selectedMembers.length]);
+
+  const seedSummary = useMemo(() => {
+    const sizes = parseSizes(form.sizes);
+    const sizePart = sizes.length > 0 ? ` × ${sizes.length}サイズ` : '';
+    if (form.kind === 'mixed') return `${form.items.length}点${sizePart} = ${seedCount}枚`;
+    if (form.kind === 'flat') return `${form.count}番号${sizePart} = ${seedCount}枚`;
+    return `${selectedMembers.length}人 × ${form.count}番号${sizePart} = ${seedCount}枚`;
+  }, [form.kind, form.items.length, form.sizes, form.count, selectedMembers.length, seedCount]);
 
   const canSave =
     form.title.trim().length > 0 &&
@@ -471,6 +532,42 @@ export function CollectionEditor({
               </HStack>
 
               <Stack gap="1.5">
+                <FieldLabel>種類を選ぶ</FieldLabel>
+                <Grid gap="2" columns={{ base: 1, sm: 3 }}>
+                  {TEMPLATES.map((t) => {
+                    const active = form.kind === t.value;
+                    return (
+                      <Stack
+                        as="button"
+                        key={t.value}
+                        onClick={() => patch({ kind: t.value })}
+                        cursor="pointer"
+                        gap="0.5"
+                        borderColor={active ? 'accent.default' : 'board.border'}
+                        borderRadius="lg"
+                        borderWidth="1px"
+                        p="2.5"
+                        textAlign="left"
+                        bgColor={active ? 'accent.subtle' : 'board.panel'}
+                        transition="all 0.12s"
+                        _hover={{ borderColor: 'accent.default' }}
+                      >
+                        <Text fontSize="sm" fontWeight="bold">
+                          {t.label}
+                        </Text>
+                        <Text color="fg.muted" fontSize="2xs" lineHeight="1.3">
+                          {t.hint}
+                        </Text>
+                        <Text color="fg.subtle" fontSize="2xs">
+                          {t.example}
+                        </Text>
+                      </Stack>
+                    );
+                  })}
+                </Grid>
+              </Stack>
+
+              <Stack gap="1.5">
                 <FieldLabel>タイトル</FieldLabel>
                 <Input
                   value={form.title}
@@ -520,24 +617,6 @@ export function CollectionEditor({
               </Grid>
 
               <Stack gap="1.5">
-                <FieldLabel>登録先の作り方</FieldLabel>
-                <SegmentGroup.Root
-                  value={form.kind}
-                  onValueChange={(e) => patch({ kind: e.value as CollectionKind })}
-                  size="sm"
-                >
-                  <SegmentGroup.Indicator />
-                  {KIND_ITEMS.map((item) => (
-                    <SegmentGroup.Item key={item.value} value={item.value}>
-                      <SegmentGroup.ItemText>{item.label}</SegmentGroup.ItemText>
-                      <SegmentGroup.ItemControl />
-                      <SegmentGroup.ItemHiddenInput />
-                    </SegmentGroup.Item>
-                  ))}
-                </SegmentGroup.Root>
-              </Stack>
-
-              <Stack gap="1.5">
                 <FieldLabel>サイズ（カンマ区切り・空欄で無し）</FieldLabel>
                 <Input
                   value={form.sizes}
@@ -545,6 +624,24 @@ export function CollectionEditor({
                   placeholder="L, 2L"
                 />
               </Stack>
+
+              <HStack
+                gap="2"
+                justifyContent="space-between"
+                borderColor="accent.default"
+                borderRadius="lg"
+                borderWidth="1px"
+                py="2"
+                px="3"
+                bgColor="accent.subtle"
+              >
+                <Text color="fg.muted" fontSize="xs">
+                  生成される枚数
+                </Text>
+                <Text fontSize="sm" fontWeight="bold" fontVariantNumeric="tabular-nums">
+                  {seedSummary}
+                </Text>
+              </HStack>
 
               {form.kind === 'mixed' ? null : (
                 <Stack gap="1.5">
@@ -670,6 +767,57 @@ export function CollectionEditor({
                       </Text>
                     </HStack>
                   </Wrap>
+                  <Stack
+                    gap="1.5"
+                    borderColor="board.border"
+                    borderRadius="lg"
+                    borderWidth="1px"
+                    p="2.5"
+                    bgColor="board.panel"
+                  >
+                    <FieldLabel>番号で一括追加</FieldLabel>
+                    <HStack gap="2" alignItems="end" flexWrap="wrap">
+                      <Stack flex="1" gap="1" minW="20">
+                        <Text color="fg.subtle" fontSize="2xs">
+                          開始
+                        </Text>
+                        <NumberInput
+                          value={String(form.bulkFrom)}
+                          min={1}
+                          max={199}
+                          onValueChange={(e) =>
+                            patch({ bulkFrom: Math.max(1, Math.round(e.valueAsNumber || 1)) })
+                          }
+                        />
+                      </Stack>
+                      <Stack flex="1" gap="1" minW="20">
+                        <Text color="fg.subtle" fontSize="2xs">
+                          終了
+                        </Text>
+                        <NumberInput
+                          value={String(form.bulkTo)}
+                          min={1}
+                          max={199}
+                          onValueChange={(e) =>
+                            patch({ bulkTo: Math.max(1, Math.round(e.valueAsNumber || 1)) })
+                          }
+                        />
+                      </Stack>
+                      <Button
+                        type="button"
+                        variant="solid"
+                        onClick={addRange}
+                        colorPalette="accent"
+                      >
+                        <FaPlus />
+                        番号をまとめて追加
+                      </Button>
+                    </HStack>
+                    <Text color="fg.subtle" fontSize="2xs">
+                      上で選んだメンバーに、開始〜終了の番号をまとめて追加します
+                    </Text>
+                  </Stack>
+
                   <HStack gap="2" alignItems="end">
                     <Stack flex="1" gap="1.5">
                       <FieldLabel>管理番号</FieldLabel>

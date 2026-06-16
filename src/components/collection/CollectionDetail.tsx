@@ -19,6 +19,7 @@ import { Text } from '~/components/ui/text';
 import { BromideTile } from '~/components/bromide/BromideTile';
 import { ProgressBar, StatPills } from '~/components/bromide/Progress';
 import { PhotoAddDialog } from '~/components/photo/PhotoAddDialog';
+import { buildStableSlots } from '~/components/admin/CollectionEditor';
 import { deleteBromideImage } from '~/lib/storage';
 import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
@@ -114,7 +115,8 @@ export function CollectionDetail({
   const updateItems = (
     items: { memberId: string | null; no: number; type?: string; label?: string }[]
   ) => {
-    void catalogActions.upsertCollection({ ...collection, items });
+    const next = { ...collection, items };
+    void catalogActions.upsertCollection({ ...next, slots: buildStableSlots(next, collection) });
   };
   const retagItem = (target: Bromide, memberId: string | null) => {
     if (memberId === target.memberId) return;
