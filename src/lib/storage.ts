@@ -75,12 +75,19 @@ export async function deleteBromideImage(imageUrl: string | null | undefined): P
   if (!path) return;
   const sb = getSupabase();
   if (!sb) return;
-  const { data: refs } = await sb
+  const canonical = await sb
     .from('bromide_images')
     .select('bromide_id')
     .eq('image_url', imageUrl)
     .limit(1);
-  if (refs && refs.length > 0) return;
+  if (canonical.error || !canonical.data || canonical.data.length > 0) return;
+  const pending = await sb
+    .from('submissions')
+    .select('id')
+    .eq('image_url', imageUrl)
+    .eq('status', 'pending')
+    .limit(1);
+  if (pending.error || !pending.data || pending.data.length > 0) return;
   await sb.storage.from('bromides').remove([path]);
 }
 
