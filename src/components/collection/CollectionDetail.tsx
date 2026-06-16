@@ -29,7 +29,7 @@ import type { Bromide, Catalog, Collection, Member } from '~/types';
 import { DEFAULT_BROMIDE_ASPECT, bromideAspectRatio } from '~/utils/aspect';
 import { bromideCount, buildGrid, collectionStats, memberMap, slotLabel } from '~/utils/stats';
 import { toAppUrl } from '~/utils/url';
-import { formatReleaseDate, kindLabel, memberCountLabel } from './format';
+import { formatReleaseDate, memberCountLabel } from './format';
 
 interface CollectionDetailProps {
   catalog: Catalog;
@@ -210,58 +210,53 @@ export function CollectionDetail({
         <Stack gap="2">
           <HStack gap="2" justifyContent="space-between" alignItems="center" flexWrap="wrap">
             <HStack gap="2" alignItems="center" flexWrap="wrap">
-              <Badge
-                size="sm"
-                variant="subtle"
-                colorPalette={collection.kind === 'member_grid' ? 'pink' : 'gray'}
-              >
-                {kindLabel(collection.kind)}
-              </Badge>
               {isComplete ? (
                 <Badge size="sm" variant="solid" colorPalette="green">
                   コンプ!
                 </Badge>
               ) : null}
             </HStack>
-            {isAdmin ? (
-              <HStack gap="1.5" flexWrap="wrap">
-                <Button asChild size="xs" variant="outline">
-                  <Link href={toAppUrl(`/admin?collection=${collection.id}`)}>
-                    <FaGear />
-                    コレクション編集
-                  </Link>
-                </Button>
-                <Button
-                  size="xs"
-                  variant={editMode ? 'solid' : 'outline'}
-                  onClick={() => setEditMode((v) => !v)}
-                >
-                  {editMode ? <FaCheck /> : <FaPenToSquare />}
-                  {editMode ? '画像管理を終了' : '画像を管理'}
-                </Button>
-              </HStack>
-            ) : null}
-          </HStack>
-          <HStack gap="2" flexWrap="wrap">
-            <Button
-              size="xs"
-              variant="outline"
-              onClick={() => {
-                if (!profile) {
-                  toast({
-                    title: adminEdit
-                      ? '画像登録にはログインが必要です'
-                      : '画像投稿にはログインが必要です',
-                    type: 'error'
-                  });
-                  return;
-                }
-                setPhotoTargetId(null);
-                setPhotoOpen(true);
-              }}
-            >
-              画像をまとめて追加
-            </Button>
+            <HStack gap="1.5" flexWrap="wrap">
+              <Button
+                size="xs"
+                variant="solid"
+                onClick={() => {
+                  if (!profile) {
+                    toast({
+                      title: adminEdit
+                        ? '画像登録にはログインが必要です'
+                        : '画像投稿にはログインが必要です',
+                      type: 'error'
+                    });
+                    return;
+                  }
+                  setPhotoTargetId(null);
+                  setPhotoOpen(true);
+                }}
+                colorPalette="accent"
+              >
+                <FaPlus />
+                画像を追加
+              </Button>
+              {isAdmin ? (
+                <>
+                  <Button asChild size="xs" variant="outline">
+                    <Link href={toAppUrl(`/admin?collection=${collection.id}`)}>
+                      <FaGear />
+                      コレクション編集
+                    </Link>
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant={editMode ? 'solid' : 'outline'}
+                    onClick={() => setEditMode((v) => !v)}
+                  >
+                    {editMode ? <FaCheck /> : <FaPenToSquare />}
+                    {editMode ? '画像管理を終了' : '画像を管理'}
+                  </Button>
+                </>
+              ) : null}
+            </HStack>
           </HStack>
           {adminEdit ? (
             <Text color="accent.text" fontSize="xs">
