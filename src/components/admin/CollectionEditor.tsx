@@ -15,7 +15,7 @@ import { useToaster } from '~/context/ToasterContext';
 import { catalogActions } from '~/hooks/useCatalog';
 import { bromideId, buildBromides, collectionSizes, seedCatalog } from '~/data/catalog';
 import { formatReleaseDate, kindLabel, memberCountLabel } from '~/components/collection/format';
-import type { BromideSpec, Catalog, Collection, CollectionKind, Member } from '~/types';
+import type { Bromide, BromideSpec, Catalog, Collection, CollectionKind, Member } from '~/types';
 import { formatAspect, parseAspect } from '~/utils/aspect';
 
 const SEED_IDS = new Set(seedCatalog.collections.map((c) => c.id));
@@ -134,6 +134,17 @@ function buildStableSlots(
   });
 }
 
+export function orphanedImageCount(previousBromides: Bromide[], nextSlots: BromideSpec[]): number {
+  const kept = new Set<string>();
+  for (const slot of nextSlots) {
+    if (slot.slotId) kept.add(slot.slotId);
+    for (const id of slot.legacyIds ?? []) kept.add(id);
+  }
+  return previousBromides.filter(
+    (b) => b.imageUrl && !kept.has(b.id) && !b.legacyIds.some((id) => kept.has(id))
+  ).length;
+}
+
 export function CollectionEditor({
   catalog,
   initialCollectionId
@@ -144,6 +155,10 @@ export function CollectionEditor({
   const { toast } = useToaster();
   const [editing, setEditing] = useState<Collection | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Collection | null>(null);
+  const [pendingSave, setPendingSave] = useState<{
+    collection: Collection;
+    orphaned: number;
+  } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<FormState>(() => emptyForm(catalog.members));
 
@@ -231,6 +246,15 @@ export function CollectionEditor({
       ? form.items.length > 0
       : form.count >= 1 && (form.kind === 'flat' || selectedMembers.length > 0));
 
+  const commitSave = (collection: Collection) => {
+    catalogActions.upsertCollection(collection);
+    toast({ title: editing ? '更新しました' : '作成しました', type: 'success' });
+    setEditing(null);
+    setDialogOpen(false);
+    setPendingSave(null);
+    setForm(emptyForm(catalog.members));
+  };
+
   const save = () => {
     if (!canSave) return;
     const sizes = parseSizes(form.sizes);
@@ -268,11 +292,17 @@ export function CollectionEditor({
       ...collectionWithoutSlots,
       slots: buildStableSlots(collectionWithoutSlots, editing, aspect)
     };
-    catalogActions.upsertCollection(collection);
-    toast({ title: editing ? '更新しました' : '作成しました', type: 'success' });
-    setEditing(null);
-    setDialogOpen(false);
-    setForm(emptyForm(catalog.members));
+    const orphaned = editing
+      ? orphanedImageCount(
+          catalog.bromides.filter((b) => b.collectionId === editing.id),
+          collection.slots ?? []
+        )
+      : 0;
+    if (orphaned > 0) {
+      setPendingSave({ collection, orphaned });
+      return;
+    }
+    commitSave(collection);
   };
 
   const remove = (c: Collection) => {
@@ -787,6 +817,45 @@ export function CollectionEditor({
                 <Button onClick={confirmDelete} colorPalette="red">
                   <FaTrash />
                   削除する
+                </Button>
+              </HStack>
+            </Stack>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Dialog.Root>
+
+      <Dialog.Root
+        open={pendingSave !== null}
+        onOpenChange={(e) => {
+          if (!e.open) setPendingSave(null);
+        }}
+        lazyMount
+        unmountOnExit
+      >
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content maxW="sm" p="6">
+            <Stack gap="4">
+              <Stack gap="1">
+                <Dialog.Title asChild>
+                  <Heading fontSize="lg">登録済み画像が枠から外れます</Heading>
+                </Dialog.Title>
+                <Dialog.Description asChild>
+                  <Text color="fg.muted" fontSize="sm">
+                    この設定変更で{pendingSave?.orphaned}
+                    枚の登録済み画像が現在の枠から切り離されます。所持データも切り離される可能性があります。続行しますか？
+                  </Text>
+                </Dialog.Description>
+              </Stack>
+              <HStack gap="2" justifyContent="flex-end">
+                <Dialog.CloseTrigger asChild>
+                  <Button variant="outline">キャンセル</Button>
+                </Dialog.CloseTrigger>
+                <Button
+                  onClick={() => pendingSave && commitSave(pendingSave.collection)}
+                  colorPalette="red"
+                >
+                  続行する
                 </Button>
               </HStack>
             </Stack>
