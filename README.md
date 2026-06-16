@@ -1,22 +1,21 @@
 # ピュアモン ブロマイド管理 / Purely Monster Bromide Tracker
 
 A bromide (ブロマイド) collection tracker for the idol group **ピュアリーモンスター (Purely Monster)**.
-Track which bromides you own across collections, see what's missing, manage duplicates, and
-auto-generate copy-paste 譲渡 (trade) posts for X/Twitter. Japanese UI, **works fully without login
-and offline** — your data is saved locally; Supabase is an optional sync/crowdsource layer.
+Admins define the collection catalog, users mark owned bromides, and logged-in users contribute
+missing images for admin approval. Japanese UI, with Supabase as the production source of truth for
+catalog, image submissions, and authenticated ownership persistence.
 
 ## Features
 
 - **コレクション** — browse bromide collections; per-collection grid (7 members × No., or flat 集合).
-  Tap a tile to record ownership, persisted instantly to `localStorage`.
+  Tap a tile to record ownership.
 - **マイコレ・不足** — aggregate dashboard: completion %, missing (不足) and duplicate (ダブり) lists,
   per-member completion, and a share-ready poster export (PNG).
 - **譲渡** — generates idiomatic 譲/求 trade text from your duplicates + missing, with copy & X-share,
   conditions (郵送/手渡し, 〆切, 連絡先), preset formats, and saved drafts (マイ募集).
 - **画像投稿** — logged-in users can contribute missing bromide images; submissions go to admin approval.
 - **管理** — admins create collections, register bromide images, and approve submissions.
-- Local-first + offline; X(Twitter) login, cloud image storage and cross-user crowdsourcing when
-  Supabase is configured.
+- Supabase-authenticated ownership sync; localStorage is only the logged-out fallback.
 
 ## Stack
 
@@ -56,15 +55,18 @@ are defined on the server** (an admin defines them once and every visitor sees t
      tightens the profile update policy so non-admin profile writes cannot carry `is_admin` changes.
    - [`supabase/migrations/0005_profile_read_policy_guard.sql`](supabase/migrations/0005_profile_read_policy_guard.sql) —
      removes anonymous/public reads from `profiles`.
+   - For an existing live database that only needs the profile security fix, run
+     [`supabase/live-policy-hotfix-2026-06-16.sql`](supabase/live-policy-hotfix-2026-06-16.sql), then run
+     `bun run verify:supabase-public`.
 4. Copy `.env.example` → `.env`, fill `PUBLIC_ENV__SUPABASE_URL` + `PUBLIC_ENV__SUPABASE_ANON_KEY`, rebuild.
 5. Make yourself admin: `update public.profiles set is_admin = true where handle = 'yourhandle';`
    (and add your handle to `PUBLIC_ENV__ADMIN_HANDLES` so the in-app `/admin` gate opens).
 
-Once configured, the app fetches the catalog from Supabase (cached in `localStorage` for offline), and
-everything an admin does on `/admin` — create/edit collections, register/approve bromide images — writes
-to the server, so all users see it. Anonymous visitors can still browse (public read), and the app stays
-usable offline from cache. Without Supabase, `/admin` → **ローカル管理モードを有効化** edits a
-device-local catalog instead (handy for trying it out). Image upload requires Supabase login.
+Once configured, the app fetches the catalog from Supabase, and everything an admin does on `/admin` —
+create/edit collections, register/approve bromide images — writes to the server, so all users see it.
+Logged-in ownership ticks write to `public.ownership`; anonymous ticks stay in localStorage. Anonymous
+visitors can still browse public catalog data. Without Supabase, `/admin` → **ローカル管理モードを有効化**
+edits a device-local catalog instead for development only. Image upload requires Supabase login.
 
 ## Local Supabase (dev)
 
@@ -98,9 +100,10 @@ Catalog source order: **Supabase (when configured) → localStorage cache → bu
 (`src/data/catalog.ts`). Members + collections live in the `members`/`collections` tables; bromides are
 generated client-side from each collection's params (`member_grid` = members × numbers × sizes, `mixed` =
 an explicit per-item tagged list, `flat` = numbers only), and approved images come from `bromide_images`.
-Ownership/submissions/trades are per-device `localStorage` (`src/data/store.ts`), optionally synced to
-Supabase. Bromide IDs are stable: `"<collectionId>:<memberId>:<size>:<no>"` (size/member segments omitted
-when absent; group items use `flat`).
+Authenticated ownership lives in `public.ownership`; logged-out ownership, trade drafts, and local dev
+fallbacks use `localStorage` (`src/data/store.ts`). Bromide IDs are stable:
+`"<collectionId>:<memberId>:<size>:<no>"` (size/member segments omitted when absent; group items use
+`flat`).
 
 ---
 

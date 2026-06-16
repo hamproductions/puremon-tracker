@@ -128,4 +128,5 @@ Real Supabase user-flow proof from 2026-06-16:
 ## Remaining Risk
 
 - Deployed Supabase projects must apply `supabase/migrations/0003_profile_admin_guard.sql`, `supabase/migrations/0004_profile_update_policy_guard.sql`, and `supabase/migrations/0005_profile_read_policy_guard.sql`. Live verification with `test_user@ham-san.net` still fails until the deployed DB blocks anonymous profile reads and non-admin `is_admin` escalation.
+- For the current live database, the same profile policy fix is bundled in `supabase/live-policy-hotfix-2026-06-16.sql` for one SQL Editor run.
 - The supplied `test_admin@ham-san.net` account currently has `profiles.is_admin=false`, so it cannot validate admin-only canonical upload, collection CRUD, or submission approval until promoted.

@@ -32,4 +32,15 @@ describe('supabase policies', () => {
     expect(sql).toContain('auth.uid() = id');
     expect(sql).toContain('create policy "admins read profiles"');
   });
+
+  test('bundles the live profile policy hotfix', () => {
+    const sql = readFileSync(join(import.meta.dir, 'live-policy-hotfix-2026-06-16.sql'), 'utf8');
+
+    expect(sql).toContain('prevent_profile_admin_self_escalation');
+    expect(sql).toContain('drop policy if exists "users update own profile"');
+    expect(sql).toContain('is_admin = public.is_admin(auth.uid())');
+    expect(sql).toContain('drop policy if exists "profiles are readable by everyone"');
+    expect(sql).toContain('create policy "users read own profile"');
+    expect(sql).toContain('create policy "admins read profiles"');
+  });
 });
