@@ -5,6 +5,8 @@ import { usePageContext } from 'vike-react/usePageContext';
 import { Box, Center, Container, HStack, Stack, styled } from 'styled-system/jsx';
 import { AuthButton } from '~/components/layout/AuthButton';
 import { ColorModeToggle } from '~/components/layout/ColorModeToggle';
+import { AuthProvider } from '~/context/AuthProvider';
+import { QueryProvider } from '~/context/QueryProvider';
 import { Drawer } from '~/components/ui/drawer';
 import { IconButton } from '~/components/ui/styled/icon-button';
 import { Link } from '~/components/ui/link';
@@ -53,6 +55,16 @@ function Brand({ size = 'md' }: { size?: 'sm' | 'md' }) {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <QueryProvider>
+      <AuthProvider>
+        <LayoutContent>{children}</LayoutContent>
+      </AuthProvider>
+    </QueryProvider>
+  );
+}
+
+function LayoutContent({ children }: { children: React.ReactNode }) {
   const { urlPathname } = usePageContext();
   const { isAdmin } = useAuth();
   const [open, setOpen] = useState(false);

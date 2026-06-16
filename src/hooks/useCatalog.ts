@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { buildBromides, seedCatalog } from '~/data/catalog';
 import {
   deleteCollectionRemote,
@@ -12,13 +13,15 @@ import {
   customCollectionsStore,
   customMembersStore,
   deletedCollectionsStore,
-  remoteCatalogStore,
   useStore
 } from '~/data/store';
 import { resolveProfile } from '~/lib/authProfile';
 import { hasE2EProfile, readE2EProfile } from '~/lib/e2eAuth';
 import { getSupabase, isSupabaseConfigured } from '~/lib/supabase';
 import type { Catalog, Collection, Member } from '~/types';
+
+const CATALOG_QUERY_KEY = ['catalog'];
+let catalogQueryClient: QueryClient | null = null;
 
 function mergeById<T extends { id: string }>(base: T[], extra: T[]): T[] {
   const map = new Map(base.map((x) => [x.id, x]));
@@ -50,34 +53,34 @@ export function buildMergedCatalog(
   return { group: seedCatalog.group, members, collections, bromides };
 }
 
-let fetchedOnce = false;
-
-async function refreshRemoteCatalog() {
-  const c = await fetchRemoteCatalog();
-  if (c) remoteCatalogStore.set(c);
-}
-
 export function useCatalog(): Catalog {
-  const remote = useStore(remoteCatalogStore);
   const storedCustomCollections = useStore(customCollectionsStore);
   const storedCustomMembers = useStore(customMembersStore);
   const storedLocalImages = useStore(bromideImagesStore);
   const storedDeletedCollections = useStore(deletedCollectionsStore);
+  const e2e = hasE2EProfile();
+  const queryClient = useQueryClient();
+  const remoteQuery = useQuery({
+    queryKey: CATALOG_QUERY_KEY,
+    queryFn: fetchRemoteCatalog,
+    enabled: isSupabaseConfigured && !e2e
+  });
 
   useEffect(() => {
-    if (!isSupabaseConfigured || hasE2EProfile() || fetchedOnce) return;
-    fetchedOnce = true;
-    void refreshRemoteCatalog();
-  }, []);
+    catalogQueryClient = queryClient;
+    return () => {
+      if (catalogQueryClient === queryClient) catalogQueryClient = null;
+    };
+  }, [queryClient]);
+  const remote = remoteQuery.data ?? null;
 
   useEffect(() => {
-    if (!isSupabaseConfigured || hasE2EProfile()) return;
+    if (!isSupabaseConfigured || e2e) return;
     if (Object.keys(storedLocalImages).length === 0) return;
     bromideImagesStore.set({});
-  }, [storedLocalImages]);
+  }, [e2e, storedLocalImages]);
 
   return useMemo(() => {
-    const e2e = hasE2EProfile();
     const includeLocalState = e2e || !isSupabaseConfigured;
     const customCollections = includeLocalState ? storedCustomCollections : [];
     const customMembers = includeLocalState ? storedCustomMembers : [];
@@ -105,6 +108,7 @@ export function useCatalog(): Catalog {
     );
   }, [
     remote,
+    e2e,
     storedCustomCollections,
     storedCustomMembers,
     storedLocalImages,
@@ -112,12 +116,16 @@ export function useCatalog(): Catalog {
   ]);
 }
 
+function invalidateCatalog() {
+  return catalogQueryClient?.invalidateQueries({ queryKey: CATALOG_QUERY_KEY });
+}
+
 export const catalogActions = {
   async upsertCollection(collection: Collection) {
     if (!hasE2EProfile() && isSupabaseConfigured) {
       try {
         await upsertCollectionRemote(collection);
-        await refreshRemoteCatalog();
+        await invalidateCatalog();
       } catch (e) {
         console.error('collections upsert failed', e);
       }
@@ -132,7 +140,7 @@ export const catalogActions = {
     if (!isSupabaseConfigured) return;
     try {
       await upsertCollectionRemote(collection);
-      await refreshRemoteCatalog();
+      await invalidateCatalog();
       customCollectionsStore.update((list) => list.filter((c) => c.id !== collection.id));
     } catch (e) {
       console.error('collections upsert failed', e);
@@ -142,7 +150,7 @@ export const catalogActions = {
     if (!hasE2EProfile() && isSupabaseConfigured) {
       try {
         await deleteCollectionRemote(id);
-        await refreshRemoteCatalog();
+        await invalidateCatalog();
       } catch (e) {
         console.error('collections delete failed', e);
       }
@@ -154,7 +162,7 @@ export const catalogActions = {
     if (!isSupabaseConfigured) return;
     try {
       await deleteCollectionRemote(id);
-      await refreshRemoteCatalog();
+      await invalidateCatalog();
     } catch (e) {
       console.error('collections delete failed', e);
     }
@@ -163,7 +171,7 @@ export const catalogActions = {
     if (!hasE2EProfile() && isSupabaseConfigured) {
       try {
         await upsertMemberRemote(member);
-        await refreshRemoteCatalog();
+        await invalidateCatalog();
       } catch (e) {
         console.error('members upsert failed', e);
       }
@@ -174,7 +182,7 @@ export const catalogActions = {
     if (!isSupabaseConfigured) return;
     try {
       await upsertMemberRemote(member);
-      await refreshRemoteCatalog();
+      await invalidateCatalog();
       customMembersStore.update((list) => list.filter((m) => m.id !== member.id));
     } catch (e) {
       console.error('members upsert failed', e);
@@ -199,7 +207,7 @@ export const catalogActions = {
     if (!(await resolveProfile(sb, session?.user))?.isAdmin) return false;
     try {
       await setBromideImageRemote(bromideId, imageUrl);
-      await refreshRemoteCatalog();
+      await invalidateCatalog();
       return true;
     } catch (e) {
       console.error('bromide image set failed', e);

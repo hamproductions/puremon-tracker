@@ -1,62 +1,53 @@
 import { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchPreferenceRemote, setPreferenceRemote } from '~/data/remote';
-import { hasE2EProfile } from '~/lib/e2eAuth';
-import { getSupabase, isSupabaseConfigured } from '~/lib/supabase';
+import { useAuth } from '~/hooks/useAuth';
+import { isSupabaseConfigured } from '~/lib/supabase';
+
+const preferenceQueryKey = (userId: string | null | undefined, key: string) =>
+  ['preference', userId, key] as const;
 
 export function useUserPreference<T>(
   key: string,
   initial: T
 ): [T, (next: T | ((prev: T) => T)) => void] {
-  const [value, setValue] = useState(initial);
-  const [remoteUserId, setRemoteUserId] = useState<string | null>(null);
+  const [localValue, setLocalValue] = useState(initial);
+  const { profile } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = isSupabaseConfigured ? profile?.id : null;
+  const remote = Boolean(userId);
+  const queryKey = preferenceQueryKey(userId, key);
+  const query = useQuery({
+    queryKey,
+    queryFn: async () => (await fetchPreferenceRemote<T>(key)) ?? initial,
+    enabled: remote
+  });
+  const value = remote ? (query.data ?? initial) : localValue;
 
   useEffect(() => {
-    setValue(initial);
-    if (!isSupabaseConfigured || hasE2EProfile()) return;
-    const sb = getSupabase();
-    if (!sb) return;
-    let cancelled = false;
-    const load = async () => {
-      const {
-        data: { session }
-      } = await sb.auth.getSession();
-      if (cancelled) return;
-      const userId = session?.user.id ?? null;
-      setRemoteUserId(userId);
-      if (!userId) {
-        setValue(initial);
-        return;
-      }
-      try {
-        const next = await fetchPreferenceRemote<T>(key);
-        if (!cancelled) setValue(next ?? initial);
-      } catch (e) {
-        console.error('preference sync failed', e);
-        if (!cancelled) setValue(initial);
-      }
-    };
-    void load();
-    const {
-      data: { subscription }
-    } = sb.auth.onAuthStateChange(() => {
-      void load();
-    });
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
-  }, [key, initial]);
+    if (!remote) setLocalValue(initial);
+  }, [initial, remote]);
+
+  const mutation = useMutation({
+    mutationFn: (next: T) => setPreferenceRemote(key, next),
+    onMutate: (next: T) => {
+      const previous = queryClient.getQueryData<T>(queryKey) ?? initial;
+      queryClient.setQueryData(queryKey, next);
+      return previous;
+    },
+    onError: (e, _next, previous) => {
+      queryClient.setQueryData(queryKey, previous);
+      console.error('preference sync failed', e);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey });
+    }
+  });
 
   const update = (next: T | ((prev: T) => T)) => {
-    setValue((prev) => {
-      const value = typeof next === 'function' ? (next as (prev: T) => T)(prev) : next;
-      if (remoteUserId) {
-        void setPreferenceRemote(key, value).catch((e) =>
-          console.error('preference sync failed', e)
-        );
-      }
-      return value;
-    });
+    const updated = typeof next === 'function' ? (next as (prev: T) => T)(value) : next;
+    if (remote) mutation.mutate(updated);
+    else setLocalValue(updated);
   };
 
   return [value, update];

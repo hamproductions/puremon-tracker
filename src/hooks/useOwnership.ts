@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchOwnershipRemote, replaceOwnershipRemote, setOwnershipRemote } from '~/data/remote';
 import { ownershipStore, useStore } from '~/data/store';
-import { hasE2EProfile } from '~/lib/e2eAuth';
+import { useAuth } from '~/hooks/useAuth';
 import { clearAnonymousOwnershipState } from '~/lib/localProductState';
-import { getSupabase, isSupabaseConfigured } from '~/lib/supabase';
+import { isSupabaseConfigured } from '~/lib/supabase';
 import type { OwnershipMap } from '~/types';
+
+const ownershipQueryKey = (userId: string | null | undefined) => ['ownership', userId] as const;
 
 function withCount(map: OwnershipMap, id: string, count: number): OwnershipMap {
   const next = { ...map };
@@ -22,60 +25,69 @@ export function mergeOwnershipForLogin(
 
 export function useOwnership() {
   const localOwnership = useStore(ownershipStore);
-  const [remoteUserId, setRemoteUserId] = useState<string | null>(null);
-  const [remoteOwnership, setRemoteOwnership] = useState<OwnershipMap | null>(null);
-  const remote = Boolean(remoteUserId);
-  const ownership = remote ? (remoteOwnership ?? {}) : localOwnership;
+  const { profile } = useAuth();
+  const queryClient = useQueryClient();
+  const migratedUsers = useRef(new Set<string>());
+  const userId = isSupabaseConfigured ? profile?.id : null;
+  const remote = Boolean(userId);
+  const key = ownershipQueryKey(userId);
+  const remoteQuery = useQuery({
+    queryKey: key,
+    queryFn: async () => (await fetchOwnershipRemote()) ?? {},
+    enabled: remote
+  });
+  const ownership = remote ? (remoteQuery.data ?? {}) : localOwnership;
 
   useEffect(() => {
-    if (!isSupabaseConfigured || hasE2EProfile()) return;
-    const sb = getSupabase();
-    if (!sb) return;
-    let cancelled = false;
-    const load = async () => {
-      const {
-        data: { session }
-      } = await sb.auth.getSession();
-      if (cancelled) return;
-      const userId = session?.user.id ?? null;
-      setRemoteUserId(userId);
-      if (!userId) {
-        setRemoteOwnership(null);
-        return;
-      }
-      const next = await fetchOwnershipRemote();
-      if (cancelled) return;
-      const anonymous = ownershipStore.get();
-      const merged = mergeOwnershipForLogin(anonymous, next ?? {});
-      setRemoteOwnership(merged);
-      if (Object.keys(anonymous).length > 0) {
-        void replaceOwnershipRemote(merged).catch((e) => console.error('ownership sync failed', e));
-      }
-      clearAnonymousOwnershipState();
-    };
-    void load();
-    const {
-      data: { subscription }
-    } = sb.auth.onAuthStateChange(() => {
-      void load();
-    });
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
-  }, []);
+    if (!userId || !remoteQuery.isSuccess || migratedUsers.current.has(userId)) return;
+    migratedUsers.current.add(userId);
+    const anonymous = ownershipStore.get();
+    if (Object.keys(anonymous).length === 0) return;
+    const merged = mergeOwnershipForLogin(anonymous, remoteQuery.data ?? {});
+    queryClient.setQueryData(key, merged);
+    void replaceOwnershipRemote(merged)
+      .then(() => {
+        clearAnonymousOwnershipState();
+      })
+      .catch((e) => console.error('ownership sync failed', e));
+  }, [key, queryClient, remoteQuery.data, remoteQuery.isSuccess, userId]);
 
-  const updateRemote = (fn: (map: OwnershipMap) => OwnershipMap) => {
-    setRemoteOwnership((map) => fn(map ?? {}));
-  };
+  const setRemoteCount = useMutation({
+    mutationFn: ({ id, count }: { id: string; count: number }) => setOwnershipRemote(id, count),
+    onMutate: ({ id, count }) => {
+      const previous = queryClient.getQueryData<OwnershipMap>(key) ?? {};
+      queryClient.setQueryData<OwnershipMap>(key, withCount(previous, id, count));
+      return previous;
+    },
+    onError: (e, _next, previous) => {
+      if (previous) queryClient.setQueryData(key, previous);
+      console.error('ownership sync failed', e);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: key });
+    }
+  });
+
+  const replaceRemote = useMutation({
+    mutationFn: replaceOwnershipRemote,
+    onMutate: (next: OwnershipMap) => {
+      const previous = queryClient.getQueryData<OwnershipMap>(key) ?? {};
+      queryClient.setQueryData(key, next);
+      return previous;
+    },
+    onError: (e, _next, previous) => {
+      if (previous) queryClient.setQueryData(key, previous);
+      console.error('ownership sync failed', e);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: key });
+    }
+  });
 
   const setCount = (id: string, count: number) => {
     const nextCount = Math.max(0, Math.floor(count));
     if (remote) {
-      updateRemote((map) => withCount(map, id, nextCount));
-      void setOwnershipRemote(id, nextCount).catch((e) =>
-        console.error('ownership sync failed', e)
-      );
+      setRemoteCount.mutate({ id, count: nextCount });
       return;
     }
     ownershipStore.update((map) => withCount(map, id, nextCount));
@@ -91,8 +103,7 @@ export function useOwnership() {
 
   const clearAll = () => {
     if (remote) {
-      setRemoteOwnership({});
-      void replaceOwnershipRemote({}).catch((e) => console.error('ownership sync failed', e));
+      replaceRemote.mutate({});
       return;
     }
     ownershipStore.set({});
@@ -108,8 +119,7 @@ export function useOwnership() {
       const clean = Object.fromEntries(
         Object.entries(next).filter(([, count]) => count > 0)
       ) as OwnershipMap;
-      setRemoteOwnership(clean);
-      void replaceOwnershipRemote(clean).catch((e) => console.error('ownership sync failed', e));
+      replaceRemote.mutate(clean);
       return;
     }
     ownershipStore.update((map) => {

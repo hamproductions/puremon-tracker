@@ -24,6 +24,7 @@
     "@pandacss/dev": "^1.7.1",
     "@park-ui/panda-preset": "^0.43.1",
     "@supabase/supabase-js": "^2.45.0",
+    "@tanstack/react-query": "^5.101.0",
     "file-saver": "^2.0.5",
     "lodash-es": "^4.17.21",
     "lz-string": "^1.5.0",

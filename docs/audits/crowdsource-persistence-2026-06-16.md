@@ -122,3 +122,41 @@ Still not complete:
 - Full user/admin Supabase upload flow still needs post-SQL real DB proof.
 - Cross-user and cross-browser-session persistence still needs the full test matrix run after live DB migration.
 - The slot model is backward-compatible at the client/collection JSON layer, but a fuller server-side `bromide_slots` table would still be cleaner for long-term admin inventory management.
+
+## 2026-06-16 React Query repair evidence
+
+Implemented:
+
+- Added app-level `QueryProvider`.
+- Added app-level `AuthProvider` so page/hooks share one authenticated profile source instead of each hook opening its own auth subscription/profile load.
+- Moved remote catalog reads to `useQuery(['catalog'])` and invalidates after catalog/image/member writes.
+- Moved authenticated ownership reads/writes to `useQuery(['ownership', userId])` plus optimistic mutations.
+- Kept anonymous ownership as the only persisted product local fallback; login migration writes merged state to Supabase before clearing anonymous local ownership.
+- Moved selected oshi to `useQuery(['oshi', userId])` plus mutation invalidation.
+- Moved collection view preferences to `useQuery(['preference', userId, key])` plus mutation invalidation.
+- Admin image upload now uses direct admin image registration for any logged-in admin, independent of collection edit mode.
+
+Verification:
+
+```text
+bun test src/hooks/useCatalog.test.ts src/hooks/useOwnership.test.ts src/lib/submissions.test.ts: pass
+bun run type-check: pass
+bun run lint: pass with existing Panda warnings in src/pages/+Layout.tsx
+bun run build: pass
+```
+
+Browser evidence captured through `agent-browser`:
+
+- `dogfood-output/react-query-persistence-2026-06-16/screenshots/initial-home.png`
+- `dogfood-output/react-query-persistence-2026-06-16/screenshots/app-client-inline-login.png`
+- `dogfood-output/react-query-persistence-2026-06-16/screenshots/app-client-halloween-collection.png`
+- `dogfood-output/react-query-persistence-2026-06-16/videos/app-client-ownership-persistence.webm`
+- `dogfood-output/react-query-persistence-2026-06-16/videos/final-user-oshi-live-db-404.webm`
+
+Real browser findings:
+
+- `test_user@ham-san.net` can be signed in through the app Supabase client and renders as `@Test_User`.
+- Authenticated catalog and ownership reads hit Supabase.
+- Current deployed Supabase still returns `404 PGRST205` for `public.oshi`.
+- Current deployed Supabase still needs `supabase/live-persistence-hotfix-2026-06-16.sql` applied before selected oshi and user preference persistence can pass.
+- Browser reload/cross-session proof remains blocked by the live DB/session test state and must be rerun after the SQL hotfix is applied.

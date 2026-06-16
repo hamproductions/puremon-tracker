@@ -1,11 +1,22 @@
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { getSupabase, isSupabaseConfigured } from '~/lib/supabase';
 import { resolveProfile } from '~/lib/authProfile';
 import { clearE2EProfile, readE2EProfile } from '~/lib/e2eAuth';
 import type { Profile } from '~/types';
 import { toAppUrl } from '~/utils/url';
 
-export function useAuth() {
+interface AuthState {
+  profile: Profile | null;
+  loading: boolean;
+  isAdmin: boolean;
+  isConfigured: boolean;
+  signInWithTwitter: () => Promise<void>;
+  signOut: () => Promise<void>;
+}
+
+export const AuthContext = createContext<AuthState | null>(null);
+
+export function useProvideAuth(): AuthState {
   const initialE2EProfile = readE2EProfile();
   const [profile, setProfile] = useState<Profile | null>(initialE2EProfile);
   const [loading, setLoading] = useState(isSupabaseConfigured && !initialE2EProfile);
@@ -60,4 +71,10 @@ export function useAuth() {
     signInWithTwitter,
     signOut
   };
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used inside AuthProvider');
+  return context;
 }

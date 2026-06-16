@@ -85,11 +85,14 @@ export function CollectionDetail({
   const setByMember = (byMember: boolean) => setView((prev) => ({ ...prev, byMember }));
   const setSize = (size: string) => setView((prev) => ({ ...prev, size }));
   const setGridCellMin = (gridCellMin: number) => setView((prev) => ({ ...prev, gridCellMin }));
+  const directImageEdit = isAdmin;
 
   const requestImage = (bromideId: string) => {
     if (!profile) {
       toast({
-        title: adminEdit ? '画像登録にはログインが必要です' : '画像投稿にはログインが必要です',
+        title: directImageEdit
+          ? '画像登録にはログインが必要です'
+          : '画像投稿にはログインが必要です',
         type: 'error'
       });
       return;
@@ -574,7 +577,7 @@ export function CollectionDetail({
         open={photoOpen}
         onOpenChange={setPhotoOpen}
         initialTargetId={photoTargetId}
-        adminEdit={adminEdit}
+        adminEdit={directImageEdit}
       />
     </Stack>
   );
