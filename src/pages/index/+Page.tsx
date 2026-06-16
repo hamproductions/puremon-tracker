@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { FaArrowRightArrowLeft, FaHeart, FaImage } from 'react-icons/fa6';
-import { Box, Grid, HStack, Stack, Wrap, styled } from 'styled-system/jsx';
+import { FaArrowRight, FaHeart, FaImage } from 'react-icons/fa6';
+import { Box, Center, Grid, HStack, Stack, Wrap, styled } from 'styled-system/jsx';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Heading } from '~/components/ui/heading';
@@ -266,32 +266,39 @@ export default function Page() {
                 href={toAppUrl(`/collections/?c=${c.id}`)}
                 _hover={{ textDecoration: 'none' }}
               >
-                <Stack
-                  gap="2"
+                <HStack
+                  gap="3"
+                  alignItems="center"
                   borderColor="board.border"
-                  borderRadius="lg"
+                  borderRadius="xl"
                   borderWidth="1px"
                   p="3"
                   bgColor="board.panelSolid"
-                  _hover={{ borderColor: 'accent.default', transform: 'translateY(-1px)' }}
+                  transition="border-color 0.15s, transform 0.15s"
+                  _hover={{ borderColor: 'accent.default', transform: 'translateY(-2px)' }}
                 >
-                  <HStack gap="2" justifyContent="space-between" alignItems="center">
-                    <HStack gap="1.5" minW="0">
-                      <Box color="accent.text">
-                        <FaImage size={13} />
-                      </Box>
-                      <Text fontSize="sm" fontWeight="bold" truncate>
-                        {c.title}
-                      </Text>
-                    </HStack>
-                    <Badge size="sm" variant="subtle" colorPalette="amber">
-                      {missing}枚
-                    </Badge>
-                  </HStack>
-                  <Text color="fg.muted" fontSize="xs">
-                    コレクションを開いて、画像のないカードから投稿できます。
-                  </Text>
-                </Stack>
+                  <Center
+                    flexShrink="0"
+                    borderRadius="lg"
+                    w="10"
+                    h="10"
+                    color="accent.text"
+                    bgColor="accent.subtle"
+                  >
+                    <FaImage size={16} />
+                  </Center>
+                  <Stack flex="1" gap="0.5" minW="0">
+                    <Text fontSize="sm" fontWeight="bold" truncate>
+                      {c.title}
+                    </Text>
+                    <Text color="accent.text" fontSize="xs" fontWeight="bold">
+                      あと {missing} 枚 募集中
+                    </Text>
+                  </Stack>
+                  <Box flexShrink="0" color="fg.subtle">
+                    <FaArrowRight size={13} />
+                  </Box>
+                </HStack>
               </Link>
             ))}
           </Grid>
@@ -384,33 +391,22 @@ export default function Page() {
         </Grid>
       </Stack>
 
-      <HStack
-        gap="3"
-        justifyContent="space-between"
-        alignItems="center"
-        borderColor="board.border"
-        borderTopWidth="1px"
-        pt="4"
-        flexWrap="wrap"
-      >
-        <Link
-          href={toAppUrl('/trade')}
-          color="fg.muted"
-          fontSize="sm"
-          _hover={{ color: 'accent.text' }}
+      {mounted && overall.owned > 0 ? (
+        <HStack
+          gap="3"
+          justifyContent="flex-end"
+          alignItems="center"
+          borderColor="board.border"
+          borderTopWidth="1px"
+          pt="4"
+          flexWrap="wrap"
         >
-          <HStack gap="1.5" alignItems="center">
-            <FaArrowRightArrowLeft size={12} />
-            譲渡テキストをつくる →
-          </HStack>
-        </Link>
-        {mounted && overall.owned > 0 ? (
           <Button size="sm" variant="subtle" onClick={() => setExportOpen(true)}>
             <FaImage />
             進捗を画像で保存
           </Button>
-        ) : null}
-      </HStack>
+        </HStack>
+      ) : null}
 
       {mounted ? (
         <ExportDialog

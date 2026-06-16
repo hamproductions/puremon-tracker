@@ -7,7 +7,7 @@ import { ProgressBar, StatPills } from '~/components/bromide/Progress';
 import type { Catalog, Collection } from '~/types';
 import { collectionStats } from '~/utils/stats';
 import { toAppUrl } from '~/utils/url';
-import { collectionColors, formatReleaseDate, kindLabel, memberCountLabel } from './format';
+import { collectionColors, formatReleaseDate, memberCountLabel } from './format';
 
 interface CollectionCardProps {
   catalog: Catalog;
@@ -39,13 +39,6 @@ export function CollectionCard({ catalog, collection, ownership, mounted }: Coll
       >
         <HStack gap="2" justifyContent="space-between" alignItems="flex-start">
           <HStack gap="1.5" flexWrap="wrap">
-            <Badge
-              size="sm"
-              variant="subtle"
-              colorPalette={collection.kind === 'member_grid' ? 'blue' : 'gray'}
-            >
-              {kindLabel(collection.kind)}
-            </Badge>
             {mounted && stats.percent === 100 ? (
               <Badge size="sm" variant="solid" colorPalette="green">
                 コンプ!
