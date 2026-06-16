@@ -15,11 +15,11 @@ import { catalogActions } from '~/hooks/useCatalog';
 import { bromideId, buildBromides, collectionSizes, seedCatalog } from '~/data/catalog';
 import { formatReleaseDate, memberCountLabel } from '~/components/collection/format';
 import type { Bromide, BromideSpec, Catalog, Collection, CollectionKind, Member } from '~/types';
-import { DEFAULT_BROMIDE_ASPECT } from '~/utils/aspect';
+import { DEFAULT_BROMIDE_ASPECT, LANDSCAPE_BROMIDE_ASPECT } from '~/utils/aspect';
 
 const SEED_IDS = new Set(seedCatalog.collections.map((c) => c.id));
 
-const LANDSCAPE_ASPECT = 4 / 3;
+const LANDSCAPE_ASPECT = LANDSCAPE_BROMIDE_ASPECT;
 
 const PRESETS: { value: CollectionKind; label: string }[] = [
   { value: 'member_grid', label: 'メンバー別' },

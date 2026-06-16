@@ -1,6 +1,8 @@
 import type { Bromide } from '~/types';
 
-export const DEFAULT_BROMIDE_ASPECT = 3 / 4;
+// L判 / 2L判 bromide print ratio (89mm × 127mm), not 3:4.
+export const DEFAULT_BROMIDE_ASPECT = 89 / 127;
+export const LANDSCAPE_BROMIDE_ASPECT = 127 / 89;
 
 export function bromideAspect(bromide: Pick<Bromide, 'aspect'>): number {
   return bromide.aspect && bromide.aspect > 0 ? bromide.aspect : DEFAULT_BROMIDE_ASPECT;
@@ -20,9 +22,7 @@ export function parseAspect(value: string): number | undefined {
 
 export function formatAspect(aspect?: number): string {
   if (!aspect) return '';
-  if (Math.abs(aspect - 3 / 4) < 0.001) return '3/4';
-  if (Math.abs(aspect - 4 / 3) < 0.001) return '4/3';
-  if (Math.abs(aspect - 1) < 0.001) return '1';
-  if (Math.abs(aspect - 16 / 9) < 0.001) return '16/9';
-  return Number(aspect.toFixed(4)).toString();
+  if (aspect < 1) return '縦';
+  if (aspect > 1) return '横';
+  return '正方形';
 }

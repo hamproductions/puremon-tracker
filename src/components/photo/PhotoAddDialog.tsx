@@ -26,7 +26,7 @@ import { deleteBromideImage, uploadBromideImage } from '~/lib/storage';
 import { createImageSubmission, saveImageSubmission } from '~/lib/submissions';
 import type { Bromide, Catalog, Collection } from '~/types';
 import { bromideLabel, bromidesByCollection, memberColor } from '~/utils/stats';
-import { CROP_MODES, cropModeAspect, cropModeForAspect, type CropMode } from './cropModes';
+import { CROP_MODES, cropModeAspect, type CropMode } from './cropModes';
 import { getCroppedBlob } from './cropImage';
 import { bromideAspectRatio } from '~/utils/aspect';
 import { scanDocument } from './documentScanner';
@@ -139,7 +139,7 @@ function PhotoAddBody({
   const [picked, setPicked] = useState<PickedImage[]>([]);
   const [cropIndex, setCropIndex] = useState(0);
   const [savedCount, setSavedCount] = useState(0);
-  const [cropMode, setCropMode] = useState<CropMode>('portrait');
+  const [cropMode, setCropMode] = useState<CropMode>('none');
 
   const selectQueue = (ids: string[]) => {
     setTouched(true);
@@ -154,8 +154,6 @@ function PhotoAddBody({
   const onFilesPicked = (files: FileList | File[], targetIds?: string[]) => {
     const list = Array.from(files).filter(isImageFile);
     if (list.length === 0) return;
-    const nextQueue = targetIds ?? queue;
-    const firstPickedTarget = nextQueue[0] ? targetById.get(nextQueue[0]) : undefined;
     if (targetIds) {
       setTouched(true);
       setQueue(targetIds);
@@ -165,7 +163,7 @@ function PhotoAddBody({
       setPicked(next);
       setCropIndex(0);
       setSavedCount(0);
-      setCropMode(cropModeForAspect(firstPickedTarget?.aspect));
+      setCropMode('none');
       setPhase('cropping');
     });
   };
@@ -589,7 +587,7 @@ function CropStep({
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setAreaPixels(null);
-    setCropMode(cropModeForAspect(target?.aspect));
+    setCropMode('none');
     if (scanTokenRef.current) scanTokenRef.current.cancelled = true;
     setScanning(false);
     setScannedSrc((prev) => {
@@ -667,10 +665,14 @@ function CropStep({
   const aspect = cropModeAspect(cropMode);
 
   const confirm = async () => {
-    if (!areaPixels || !target) return;
+    if (!target) return;
+    if (cropMode !== 'none' && !areaPixels) return;
     setBusy(true);
     try {
-      const blob = await getCroppedBlob(activeSrc, areaPixels);
+      const blob =
+        cropMode === 'none' || !areaPixels
+          ? await (await fetch(activeSrc)).blob()
+          : await getCroppedBlob(activeSrc, areaPixels);
       const file = new File([blob], `${target.id}.jpg`, { type: 'image/jpeg' });
       const { url } = await uploadBromideImage(file, target.id);
       if (adminEdit) {
@@ -697,20 +699,32 @@ function CropStep({
   return (
     <Stack flex="1" gap="0" minH="0">
       <Box position="relative" flex="1" minH={{ base: '52dvh', md: '380px' }} bgColor="#10141c">
-        <Cropper
-          image={activeSrc}
-          crop={crop}
-          aspect={aspect}
-          minZoom={1}
-          maxZoom={5}
-          restrictPosition={false}
-          showGrid
-          onCropChange={setCrop}
-          onZoomChange={setZoom}
-          onCropComplete={onCropComplete}
-          objectFit="contain"
-          zoom={zoom}
-        />
+        {cropMode === 'none' ? (
+          <styled.img
+            src={activeSrc}
+            alt=""
+            inset="0"
+            position="absolute"
+            objectFit="contain"
+            w="full"
+            h="full"
+          />
+        ) : (
+          <Cropper
+            image={activeSrc}
+            crop={crop}
+            aspect={aspect}
+            minZoom={1}
+            maxZoom={5}
+            restrictPosition={false}
+            showGrid
+            onCropChange={setCrop}
+            onZoomChange={setZoom}
+            onCropComplete={onCropComplete}
+            objectFit="contain"
+            zoom={zoom}
+          />
+        )}
         <Button
           type="button"
           size="sm"
@@ -844,7 +858,7 @@ function CropStep({
               size="sm"
               onClick={confirm}
               loading={busy}
-              disabled={!areaPixels || outOfTargets}
+              disabled={(cropMode !== 'none' && !areaPixels) || outOfTargets}
             >
               {isLastImage ? '使う / 完了' : '使う / 次へ'}
               {!isLastImage && <FaArrowRight />}

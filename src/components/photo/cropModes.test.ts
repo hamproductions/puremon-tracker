@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { cropModeAspect } from './cropModes';
+import { DEFAULT_BROMIDE_ASPECT, LANDSCAPE_BROMIDE_ASPECT } from '~/utils/aspect';
 
 describe('cropModeAspect', () => {
-  test('supports portrait landscape square and free images', () => {
-    expect(cropModeAspect('portrait')).toBe(3 / 4);
-    expect(cropModeAspect('landscape')).toBe(4 / 3);
+  test('portrait/landscape use the L判 ratio; none/free have no fixed aspect', () => {
+    expect(cropModeAspect('portrait')).toBe(DEFAULT_BROMIDE_ASPECT);
+    expect(cropModeAspect('landscape')).toBe(LANDSCAPE_BROMIDE_ASPECT);
     expect(cropModeAspect('square')).toBe(1);
     expect(cropModeAspect('free')).toBeUndefined();
+    expect(cropModeAspect('none')).toBeUndefined();
   });
 });

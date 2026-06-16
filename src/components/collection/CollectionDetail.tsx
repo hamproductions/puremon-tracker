@@ -84,9 +84,12 @@ export function CollectionDetail({
     () => buildGrid(catalog, collection, view.size),
     [catalog, collection, view.size]
   );
+  const sizeGrids = useMemo(
+    () => (grid.hasSizes ? grid.sizes : [undefined]).map((s) => buildGrid(catalog, collection, s)),
+    [catalog, collection, grid.hasSizes, grid.sizes]
+  );
   const setMissingOnly = (missingOnly: boolean) => setView((prev) => ({ ...prev, missingOnly }));
   const setByMember = (byMember: boolean) => setView((prev) => ({ ...prev, byMember }));
-  const setSize = (size: string) => setView((prev) => ({ ...prev, size }));
   const setGridCellMin = (gridCellMin: number) => setView((prev) => ({ ...prev, gridCellMin }));
   const directImageEdit = isAdmin;
 
@@ -172,7 +175,6 @@ export function CollectionDetail({
     }
   }, [byMemberAuto]);
   const stats = collectionStats(catalog, collection.id, ownership);
-  const sizeStats = collectionStats(catalog, collection.id, ownership, grid.size);
   const date = formatReleaseDate(collection.releaseDate);
   const isComplete = mounted && stats.percent === 100;
 
@@ -180,14 +182,59 @@ export function CollectionDetail({
   const shouldShow = (bromide?: Bromide) =>
     !missingOnly || !mounted || (bromide ? countOf(bromide) === 0 : true);
 
-  const memberVisible =
-    grid.kind !== 'member_grid' ||
-    grid.numbers.some((no) =>
-      grid.members.some((m) => {
-        const b = grid.cell(m.id, no);
-        return b ? shouldShow(b) : false;
-      })
+  const renderGrid = (g: ReturnType<typeof buildGrid>) => {
+    const memberVisible =
+      g.kind !== 'member_grid' ||
+      g.numbers.some((no) =>
+        g.members.some((m) => {
+          const b = g.cell(m.id, no);
+          return b ? shouldShow(b) : false;
+        })
+      );
+    if (g.kind === 'member_grid') {
+      if (!memberVisible) return <EmptyState missingOnly={missingOnly} />;
+      const Comp = byMember || g.members.length <= 1 ? MemberSections : MemberGridTable;
+      return (
+        <Comp
+          ownership={ownership}
+          toggle={toggle}
+          setCount={setCount}
+          shouldShow={shouldShow}
+          adminEdit={adminEdit}
+          requestImage={requestImage}
+          removeImage={removeImage}
+          gridCellMin={gridCellMin}
+          grid={g}
+        />
+      );
+    }
+    return (
+      <FlatGridView
+        catalog={catalog}
+        bromides={g.bromides}
+        ownership={ownership}
+        toggle={toggle}
+        setCount={setCount}
+        shouldShow={shouldShow}
+        adminEdit={adminEdit}
+        requestImage={requestImage}
+        removeImage={removeImage}
+        gridCellMin={gridCellMin}
+        onEditItem={
+          adminEdit && isMixed ? (b) => setEditTarget({ mode: 'retag', bromide: b }) : undefined
+        }
+        onRemoveItem={adminEdit && isMixed ? removeItem : undefined}
+        onAddCard={
+          adminEdit && isMixed
+            ? () => {
+                setAddNo(1);
+                setEditTarget({ mode: 'add' });
+              }
+            : undefined
+        }
+      />
     );
+  };
 
   return (
     <Stack gap="5">
@@ -301,52 +348,6 @@ export function CollectionDetail({
         <ProgressBar percent={mounted ? stats.percent : 0} />
         <StatPills stats={stats} mounted={mounted} />
 
-        {grid.hasSizes ? (
-          <HStack
-            gap="2.5"
-            alignItems="center"
-            borderColor="board.border"
-            borderTopWidth="1px"
-            pt="2.5"
-            flexWrap="wrap"
-          >
-            <Text fontSize="sm" fontWeight="bold">
-              サイズ
-            </Text>
-            <HStack gap="1" borderRadius="lg" p="1" bgColor="bg.muted">
-              {grid.sizes.map((s) => {
-                const active = grid.size === s;
-                return (
-                  <styled.button
-                    key={s}
-                    type="button"
-                    onClick={() => setSize(s)}
-                    aria-pressed={active}
-                    cursor="pointer"
-                    borderRadius="md"
-                    minW="12"
-                    py="1.5"
-                    px="4"
-                    color={active ? 'accent.fg' : 'fg.muted'}
-                    fontSize="sm"
-                    fontWeight="bold"
-                    bgColor={active ? 'accent.default' : 'transparent'}
-                    transition="background-color 0.12s, color 0.12s"
-                    _hover={active ? undefined : { bgColor: 'bg.emphasized', color: 'fg.default' }}
-                  >
-                    {s}
-                  </styled.button>
-                );
-              })}
-            </HStack>
-            {mounted ? (
-              <Text color="fg.muted" fontSize="xs" fontVariantNumeric="tabular-nums">
-                {grid.size}サイズ {sizeStats.owned}/{sizeStats.total}・{sizeStats.percent}%
-              </Text>
-            ) : null}
-          </HStack>
-        ) : null}
-
         <HStack gap="4" borderColor="board.border" borderTopWidth="1px" pt="2.5" flexWrap="wrap">
           <Switch
             checked={missingOnly}
@@ -410,60 +411,30 @@ export function CollectionDetail({
         </HStack>
       </Stack>
 
-      {grid.kind === 'member_grid' ? (
-        !memberVisible ? (
-          <EmptyState missingOnly={missingOnly} />
-        ) : byMember || grid.members.length <= 1 ? (
-          <MemberSections
-            ownership={ownership}
-            toggle={toggle}
-            setCount={setCount}
-            shouldShow={shouldShow}
-            adminEdit={adminEdit}
-            requestImage={requestImage}
-            removeImage={removeImage}
-            gridCellMin={gridCellMin}
-            grid={grid}
-          />
-        ) : (
-          <MemberGridTable
-            ownership={ownership}
-            toggle={toggle}
-            setCount={setCount}
-            shouldShow={shouldShow}
-            adminEdit={adminEdit}
-            requestImage={requestImage}
-            removeImage={removeImage}
-            gridCellMin={gridCellMin}
-            grid={grid}
-          />
-        )
-      ) : (
-        <FlatGridView
-          catalog={catalog}
-          bromides={grid.bromides}
-          ownership={ownership}
-          toggle={toggle}
-          setCount={setCount}
-          shouldShow={shouldShow}
-          adminEdit={adminEdit}
-          requestImage={requestImage}
-          removeImage={removeImage}
-          gridCellMin={gridCellMin}
-          onEditItem={
-            adminEdit && isMixed ? (b) => setEditTarget({ mode: 'retag', bromide: b }) : undefined
-          }
-          onRemoveItem={adminEdit && isMixed ? removeItem : undefined}
-          onAddCard={
-            adminEdit && isMixed
-              ? () => {
-                  setAddNo(1);
-                  setEditTarget({ mode: 'add' });
-                }
-              : undefined
-          }
-        />
-      )}
+      {sizeGrids.length > 1
+        ? sizeGrids.map((g) => {
+            const s = collectionStats(catalog, collection.id, ownership, g.size);
+            return (
+              <Stack key={g.size ?? 'one'} gap="2">
+                <HStack
+                  gap="2"
+                  alignItems="baseline"
+                  borderColor="board.border"
+                  borderTopWidth="1px"
+                  pt="2.5"
+                >
+                  <Heading fontSize="md">{g.size}</Heading>
+                  {mounted ? (
+                    <Text color="fg.muted" fontSize="xs" fontVariantNumeric="tabular-nums">
+                      {s.owned}/{s.total}・{s.percent}%
+                    </Text>
+                  ) : null}
+                </HStack>
+                {renderGrid(g)}
+              </Stack>
+            );
+          })
+        : renderGrid(sizeGrids[0])}
 
       <Dialog.Root
         open={editTarget !== null}

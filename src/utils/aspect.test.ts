@@ -14,9 +14,10 @@ describe('aspect helpers', () => {
     expect(parseAspect('x/y')).toBeUndefined();
   });
 
-  test('formats common aspect values', () => {
-    expect(formatAspect(3 / 4)).toBe('3/4');
-    expect(formatAspect(4 / 3)).toBe('4/3');
-    expect(formatAspect(16 / 9)).toBe('16/9');
+  test('formats aspect as orientation (縦/横/正方形)', () => {
+    expect(formatAspect(89 / 127)).toBe('縦');
+    expect(formatAspect(127 / 89)).toBe('横');
+    expect(formatAspect(1)).toBe('正方形');
+    expect(formatAspect(undefined)).toBe('');
   });
 });
