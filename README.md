@@ -15,7 +15,8 @@ catalog, image submissions, and authenticated ownership persistence.
   conditions (郵送/手渡し, 〆切, 連絡先), preset formats, and saved drafts (マイ募集).
 - **画像投稿** — logged-in users can contribute missing bromide images; submissions go to admin approval.
 - **管理** — admins create collections, register bromide images, and approve submissions.
-- Supabase-authenticated ownership sync; localStorage is only the logged-out fallback.
+- Supabase-authenticated ownership, selected oshi, and collection view preference sync; localStorage
+  is only the logged-out ownership fallback.
 
 ## Stack
 
@@ -55,17 +56,25 @@ are defined on the server** (an admin defines them once and every visitor sees t
      tightens the profile update policy so non-admin profile writes cannot carry `is_admin` changes.
    - [`supabase/migrations/0005_profile_read_policy_guard.sql`](supabase/migrations/0005_profile_read_policy_guard.sql) —
      removes anonymous/public reads from `profiles`.
+   - [`supabase/migrations/0006_oshi_sync.sql`](supabase/migrations/0006_oshi_sync.sql) —
+     persists each logged-in user's selected oshi.
+   - [`supabase/migrations/0007_user_preferences.sql`](supabase/migrations/0007_user_preferences.sql) —
+     persists logged-in user UI preferences such as collection grid size/layout.
    - For an existing live database that only needs the profile security fix, run
      [`supabase/live-policy-hotfix-2026-06-16.sql`](supabase/live-policy-hotfix-2026-06-16.sql), then run
      `bun run verify:supabase-public`.
+   - For an existing live database missing user persistence tables, run
+     [`supabase/live-persistence-hotfix-2026-06-16.sql`](supabase/live-persistence-hotfix-2026-06-16.sql).
 4. Copy `.env.example` → `.env`, fill `PUBLIC_ENV__SUPABASE_URL` + `PUBLIC_ENV__SUPABASE_ANON_KEY`, rebuild.
 5. Make yourself admin: `update public.profiles set is_admin = true where handle = 'yourhandle';`
    (and add your handle to `PUBLIC_ENV__ADMIN_HANDLES` so the in-app `/admin` gate opens).
 
 Once configured, the app fetches the catalog from Supabase, and everything an admin does on `/admin` —
 create/edit collections, register/approve bromide images — writes to the server, so all users see it.
-Logged-in ownership ticks write to `public.ownership`; anonymous ticks stay in localStorage. Anonymous
-visitors can still browse public catalog data. Admin management and image upload require Supabase login.
+Logged-in ownership ticks write to `public.ownership`; selected oshi write to `public.oshi`; collection
+view preferences write to `public.user_preferences`. Anonymous ticks stay in localStorage until login,
+then the server state takes priority. Anonymous visitors can still browse public catalog data. Admin
+management and image upload require Supabase login.
 
 ## Local Supabase (dev)
 
@@ -81,7 +90,8 @@ bun run verify:supabase-public
 ```
 
 This verifies public catalog reads and confirms anonymous users cannot insert submissions or upload
-storage objects. Authenticated non-admin `profiles.is_admin` escalation is guarded by
+storage objects. With a disposable non-admin login, it also verifies selected oshi and user preference
+insert/read/delete persistence. Authenticated non-admin `profiles.is_admin` escalation is guarded by
 `supabase/migrations/0003_profile_admin_guard.sql` and
 `supabase/migrations/0004_profile_update_policy_guard.sql`; profile row privacy is guarded by
 `supabase/migrations/0005_profile_read_policy_guard.sql`. Verify a deployed database has these
@@ -95,12 +105,13 @@ SUPABASE_TEST_EMAIL=... SUPABASE_TEST_PASSWORD=... bun run verify:supabase-publi
 
 ## Data model
 
-Catalog source order: **Supabase (when configured) → localStorage cache → bundled seed**
+Catalog source order: **Supabase when configured, otherwise bundled seed**
 (`src/data/catalog.ts`). Members + collections live in the `members`/`collections` tables; bromides are
 generated client-side from each collection's params (`member_grid` = members × numbers × sizes, `mixed` =
 an explicit per-item tagged list, `flat` = numbers only), and approved images come from `bromide_images`.
-Authenticated ownership lives in `public.ownership`; logged-out ownership, trade drafts, and local dev
-fallbacks use `localStorage` (`src/data/store.ts`). Bromide IDs are stable:
+Authenticated ownership lives in `public.ownership`, selected oshi in `public.oshi`, and collection view
+preferences in `public.user_preferences`. Logged-out ownership and trade drafts use `localStorage`
+(`src/data/store.ts`). Bromide IDs are stable:
 `"<collectionId>:<memberId>:<size>:<no>"` (size/member segments omitted when absent; group items use
 `flat`).
 

@@ -208,3 +208,68 @@ export async function replaceOwnershipRemote(ownership: OwnershipMap): Promise<v
   const { error } = await sb.from('ownership').insert(rows);
   if (error) throw error;
 }
+
+export async function fetchOshiRemote(): Promise<string[] | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const userId = await currentUserId();
+  if (!userId) return null;
+  const { data, error } = await sb
+    .from('oshi')
+    .select('member_id')
+    .eq('user_id', userId)
+    .order('created_at');
+  if (error) throw error;
+  return ((data ?? []) as { member_id: string }[]).map((row) => row.member_id);
+}
+
+export async function setOshiRemote(memberId: string, selected: boolean): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const userId = await currentUserId();
+  if (!userId) return;
+  if (selected) {
+    const { error } = await sb.from('oshi').upsert({
+      user_id: userId,
+      member_id: memberId,
+      created_at: new Date().toISOString()
+    });
+    if (error) throw error;
+  } else {
+    const { error } = await sb
+      .from('oshi')
+      .delete()
+      .eq('user_id', userId)
+      .eq('member_id', memberId);
+    if (error) throw error;
+  }
+}
+
+export async function fetchPreferenceRemote<T>(key: string): Promise<T | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const userId = await currentUserId();
+  if (!userId) return null;
+  const { data, error } = await sb
+    .from('user_preferences')
+    .select('value')
+    .eq('user_id', userId)
+    .eq('key', key)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? ((data as { value: T }).value ?? null) : null;
+}
+
+export async function setPreferenceRemote<T>(key: string, value: T): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  const userId = await currentUserId();
+  if (!userId) return;
+  const { error } = await sb.from('user_preferences').upsert({
+    user_id: userId,
+    key,
+    value,
+    updated_at: new Date().toISOString()
+  });
+  if (error) throw error;
+}

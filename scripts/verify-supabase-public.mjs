@@ -103,6 +103,77 @@ const profile = await sb.from('profiles').select('id,is_admin').eq('id', auth.da
 requirePass('test user profile readable', !profile.error, profile.error?.message);
 requirePass('test user is non-admin', profile.data?.is_admin === false, 'test user is already admin');
 
+const memberForPersistence = members.data?.[0]?.id;
+if (!memberForPersistence) {
+  requirePass('test member available for persistence checks', false, 'members query returned no rows');
+} else {
+  const oshiKey = memberForPersistence;
+  const oshiDeleteBefore = await sb
+    .from('oshi')
+    .delete()
+    .eq('user_id', auth.data.user.id)
+    .eq('member_id', oshiKey);
+  requirePass(
+    'test user selected-oshi delete before write',
+    !oshiDeleteBefore.error,
+    oshiDeleteBefore.error?.message
+  );
+
+  const oshiInsert = await sb.from('oshi').insert({
+    user_id: auth.data.user.id,
+    member_id: oshiKey
+  });
+  requirePass('test user selected-oshi insert', !oshiInsert.error, oshiInsert.error?.message);
+
+  const oshiRead = await sb
+    .from('oshi')
+    .select('member_id')
+    .eq('user_id', auth.data.user.id)
+    .eq('member_id', oshiKey)
+    .single();
+  requirePass(
+    'test user selected-oshi readback',
+    !oshiRead.error && oshiRead.data?.member_id === oshiKey,
+    oshiRead.error?.message
+  );
+
+  const oshiDeleteAfter = await sb
+    .from('oshi')
+    .delete()
+    .eq('user_id', auth.data.user.id)
+    .eq('member_id', oshiKey);
+  requirePass('test user selected-oshi delete after write', !oshiDeleteAfter.error, oshiDeleteAfter.error?.message);
+}
+
+const preferenceKey = `verify:${Date.now()}`;
+const preferenceValue = { gridCellMin: 156, missingOnly: true, byMember: true, size: 'L' };
+const preferenceInsert = await sb.from('user_preferences').upsert({
+  user_id: auth.data.user.id,
+  key: preferenceKey,
+  value: preferenceValue,
+  updated_at: new Date().toISOString()
+});
+requirePass('test user preference upsert', !preferenceInsert.error, preferenceInsert.error?.message);
+
+const preferenceRead = await sb
+  .from('user_preferences')
+  .select('value')
+  .eq('user_id', auth.data.user.id)
+  .eq('key', preferenceKey)
+  .single();
+requirePass(
+  'test user preference readback',
+  !preferenceRead.error && preferenceRead.data?.value?.gridCellMin === preferenceValue.gridCellMin,
+  preferenceRead.error?.message
+);
+
+const preferenceDelete = await sb
+  .from('user_preferences')
+  .delete()
+  .eq('user_id', auth.data.user.id)
+  .eq('key', preferenceKey);
+requirePass('test user preference delete', !preferenceDelete.error, preferenceDelete.error?.message);
+
 if (profile.data?.is_admin === false) {
   const escalation = await sb
     .from('profiles')

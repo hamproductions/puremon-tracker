@@ -22,6 +22,7 @@ import { PhotoAddDialog } from '~/components/photo/PhotoAddDialog';
 import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
 import { catalogActions } from '~/hooks/useCatalog';
+import { useUserPreference } from '~/hooks/useUserPreference';
 import type { Bromide, Catalog, Collection, Member } from '~/types';
 import { buildGrid, collectionStats, memberMap, slotLabel } from '~/utils/stats';
 import { toAppUrl } from '~/utils/url';
@@ -42,6 +43,13 @@ const GRID_SIZE_PRESETS = [
   { label: '大', value: 156 }
 ];
 
+interface CollectionViewPreference {
+  missingOnly: boolean;
+  byMember: boolean;
+  size?: string;
+  gridCellMin: number;
+}
+
 export function CollectionDetail({
   catalog,
   collection,
@@ -52,15 +60,31 @@ export function CollectionDetail({
 }: CollectionDetailProps) {
   const { isAdmin, profile } = useAuth();
   const { toast } = useToaster();
-  const [missingOnly, setMissingOnly] = useState(false);
-  const [byMember, setByMember] = useState(false);
+  const defaultView = useMemo<CollectionViewPreference>(
+    () => ({
+      missingOnly: false,
+      byMember: false,
+      size: undefined,
+      gridCellMin: collection.kind === 'mixed' ? 148 : 116
+    }),
+    [collection.kind]
+  );
+  const [view, setView] = useUserPreference(`collection-view:${collection.id}`, defaultView);
   const [byMemberAuto, setByMemberAuto] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [size, setSize] = useState<string | undefined>(undefined);
-  const [gridCellMin, setGridCellMin] = useState(collection.kind === 'mixed' ? 148 : 116);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
-  const grid = useMemo(() => buildGrid(catalog, collection, size), [catalog, collection, size]);
+  const missingOnly = view.missingOnly;
+  const byMember = view.byMember;
+  const gridCellMin = view.gridCellMin;
+  const grid = useMemo(
+    () => buildGrid(catalog, collection, view.size),
+    [catalog, collection, view.size]
+  );
+  const setMissingOnly = (missingOnly: boolean) => setView((prev) => ({ ...prev, missingOnly }));
+  const setByMember = (byMember: boolean) => setView((prev) => ({ ...prev, byMember }));
+  const setSize = (size: string) => setView((prev) => ({ ...prev, size }));
+  const setGridCellMin = (gridCellMin: number) => setView((prev) => ({ ...prev, gridCellMin }));
 
   const requestImage = (bromideId: string) => {
     if (!profile) {

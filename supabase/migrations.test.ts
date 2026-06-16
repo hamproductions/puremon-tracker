@@ -43,4 +43,41 @@ describe('supabase policies', () => {
     expect(sql).toContain('create policy "users read own profile"');
     expect(sql).toContain('create policy "admins read profiles"');
   });
+
+  test('syncs selected oshi per authenticated user', () => {
+    const sql = migration('0006_oshi_sync.sql');
+
+    expect(sql).toContain('create table if not exists public.oshi');
+    expect(sql).toContain('user_id uuid not null references auth.users');
+    expect(sql).toContain('member_id text not null references public.members');
+    expect(sql).toContain('primary key (user_id, member_id)');
+    expect(sql).toContain('alter table public.oshi enable row level security');
+    expect(sql).toContain('create policy "owner manages own oshi"');
+    expect(sql).toContain('auth.uid() = user_id');
+  });
+
+  test('syncs authenticated user preferences', () => {
+    const sql = migration('0007_user_preferences.sql');
+
+    expect(sql).toContain('create table if not exists public.user_preferences');
+    expect(sql).toContain('user_id uuid not null references auth.users');
+    expect(sql).toContain('key text not null');
+    expect(sql).toContain("value jsonb not null default '{}'::jsonb");
+    expect(sql).toContain('primary key (user_id, key)');
+    expect(sql).toContain('alter table public.user_preferences enable row level security');
+    expect(sql).toContain('create policy "owner manages own preferences"');
+    expect(sql).toContain('auth.uid() = user_id');
+  });
+
+  test('bundles the live persistence hotfix', () => {
+    const sql = readFileSync(
+      join(import.meta.dir, 'live-persistence-hotfix-2026-06-16.sql'),
+      'utf8'
+    );
+
+    expect(sql).toContain('create table if not exists public.oshi');
+    expect(sql).toContain('create policy "owner manages own oshi"');
+    expect(sql).toContain('create table if not exists public.user_preferences');
+    expect(sql).toContain('create policy "owner manages own preferences"');
+  });
 });
