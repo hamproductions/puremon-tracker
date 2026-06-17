@@ -867,7 +867,7 @@ export function CollectionEditor({
                 </HStack>
 
                 <Box borderColor="board.border" borderTopWidth="1px" maxH="280px" overflow="auto">
-                  <Table.Root size="sm">
+                  <Table.Root size="sm" minW="520px">
                     <Table.Head>
                       <Table.Row>
                         <Table.Header w="9" textAlign="center">

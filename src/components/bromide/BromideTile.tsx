@@ -1,5 +1,7 @@
+import { useRef, useState } from 'react';
 import { FaCamera, FaCheck, FaMinus, FaPlus, FaTrash, FaXmark } from 'react-icons/fa6';
 import { Box, Center, HStack, Stack, styled } from 'styled-system/jsx';
+import { Spinner } from '~/components/ui/spinner';
 import { Text } from '~/components/ui/text';
 import type { Bromide, Member } from '~/types';
 import { bromideAspectRatio } from '~/utils/aspect';
@@ -16,7 +18,8 @@ interface BromideTileProps {
   showStepper?: boolean;
   size?: 'sm' | 'md';
   adminEdit?: boolean;
-  onAddImage?: () => void;
+  imageEdit?: boolean;
+  onPickImage?: (file: File) => void | Promise<void>;
   onRemoveImage?: () => void;
   onEditMember?: () => void;
   onRemoveCard?: () => void;
@@ -35,11 +38,14 @@ export function BromideTile({
   showStepper = true,
   size = 'md',
   adminEdit = false,
-  onAddImage,
+  imageEdit = false,
+  onPickImage,
   onRemoveImage,
   onEditMember,
   onRemoveCard
 }: BromideTileProps) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
   const owned = count >= 1;
   const isDup = count >= 2;
   const color = member?.color ?? '#2196f3';
@@ -198,41 +204,68 @@ export function BromideTile({
           </HStack>
         ) : null}
 
-        {(!hasImg || adminEdit) && onAddImage ? (
-          <styled.button
-            type="button"
-            aria-label={`${name}の画像を${hasImg ? '差し替え' : '追加'}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddImage();
-            }}
-            style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}
-            cursor="pointer"
-            display="flex"
-            zIndex="2"
-            position="absolute"
-            left="1"
-            bottom={stepper ? (sm ? '5' : '7') : '1'}
-            gap="1"
-            justifyContent="center"
-            alignItems="center"
-            borderRadius="md"
-            minW={sm ? '12' : '10'}
-            h={sm ? '8' : '9'}
-            px="2"
-            color="white"
-            fontSize="2xs"
-            fontWeight="bold"
-            bgColor="rgba(0,0,0,0.45)"
-            opacity={0.85}
-            _hover={{ bgColor: 'rgba(0,0,0,0.75)', opacity: 1 }}
-          >
-            <FaCamera size={9} />
-            {hasImg ? '差替' : '画像'}
-          </styled.button>
+        {onPickImage && (!hasImg || imageEdit) ? (
+          <>
+            <styled.input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (!f) return;
+                setBusy(true);
+                Promise.resolve(onPickImage(f)).finally(() => setBusy(false));
+              }}
+              display="none"
+            />
+            <styled.button
+              type="button"
+              aria-label={`${name}の画像を${hasImg ? '差し替え' : '追加'}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                fileRef.current?.click();
+              }}
+              disabled={busy}
+              style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}
+              cursor="pointer"
+              display="flex"
+              zIndex="2"
+              position="absolute"
+              left="1"
+              bottom={stepper ? (sm ? '5' : '7') : '1'}
+              gap="1"
+              justifyContent="center"
+              alignItems="center"
+              borderRadius="md"
+              minW={sm ? '12' : '10'}
+              h={sm ? '8' : '9'}
+              px="2"
+              color="white"
+              fontSize="2xs"
+              fontWeight="bold"
+              bgColor="rgba(0,0,0,0.45)"
+              opacity={0.85}
+              _hover={{ bgColor: 'rgba(0,0,0,0.75)', opacity: 1 }}
+            >
+              <FaCamera size={9} />
+              {hasImg ? '差替' : '画像'}
+            </styled.button>
+          </>
         ) : null}
 
-        {adminEdit && hasImg && onRemoveImage ? (
+        {busy ? (
+          <Center
+            style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+            zIndex="3"
+            inset="0"
+            position="absolute"
+          >
+            <Spinner size="sm" />
+          </Center>
+        ) : null}
+
+        {imageEdit && hasImg && onRemoveImage ? (
           <styled.button
             type="button"
             aria-label={`${name}の画像を削除`}

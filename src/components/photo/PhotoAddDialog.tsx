@@ -177,6 +177,10 @@ function PhotoAddBody({
       toast({ title: `${saved}枚を${adminEdit ? '登録' : '投稿'}しました`, type: 'success' });
   };
 
+  const replacePicked = (index: number, src: string) => {
+    setPicked((prev) => prev.map((p, i) => (i === index ? { ...p, src } : p)));
+  };
+
   return (
     <>
       <HStack gap="3" justifyContent="space-between" alignItems="flex-start" p="4" pb="3">
@@ -232,6 +236,7 @@ function PhotoAddBody({
           cropMode={cropMode}
           setCropMode={setCropMode}
           onFinish={finishBatch}
+          replacePicked={replacePicked}
           profile={profile}
           adminEdit={adminEdit}
         />
@@ -555,6 +560,7 @@ function CropStep({
   cropMode,
   setCropMode,
   onFinish,
+  replacePicked,
   profile,
   adminEdit
 }: {
@@ -568,10 +574,12 @@ function CropStep({
   cropMode: CropMode;
   setCropMode: (mode: CropMode) => void;
   onFinish: (saved: number) => void;
+  replacePicked: (index: number, src: string) => void;
   profile: ReturnType<typeof useAuth>['profile'];
   adminEdit: boolean;
 }) {
   const { toast } = useToaster();
+  const repickRef = useRef<HTMLInputElement>(null);
   const current = picked[cropIndex];
   const target = queueBromides[savedCount];
 
@@ -645,6 +653,21 @@ function CropStep({
     toast({ title: '書類を検出してトリミングしました', type: 'success' });
   };
 
+  const repick = (file: File) => {
+    void fileToDataUrl(file).then((src) => {
+      if (scanTokenRef.current) scanTokenRef.current.cancelled = true;
+      setScannedSrc((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setScanning(false);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setAreaPixels(null);
+      replacePicked(cropIndex, src);
+    });
+  };
+
   if (!current) {
     onFinish(savedCount);
     return null;
@@ -698,7 +721,7 @@ function CropStep({
 
   return (
     <Stack flex="1" gap="0" minH="0">
-      <Box position="relative" flex="1" minH={{ base: '52dvh', md: '380px' }} bgColor="#10141c">
+      <Box position="relative" flex="1" minH={{ base: '34dvh', md: '380px' }} bgColor="#10141c">
         {cropMode === 'none' ? (
           <styled.img
             src={activeSrc}
@@ -769,7 +792,7 @@ function CropStep({
         )}
       </Box>
 
-      <Stack gap="3" p="4" bgColor="board.panelSolid">
+      <Stack gap="3" flexShrink="0" p="4" bgColor="board.panelSolid">
         <HStack gap="3" justifyContent="space-between" alignItems="center">
           {target ? (
             <HStack gap="2" minW="0">
@@ -799,20 +822,24 @@ function CropStep({
           </Badge>
         </HStack>
 
-        <SegmentGroup.Root
-          value={cropMode}
-          onValueChange={(e) => setCropMode(e.value as CropMode)}
-          size="sm"
-        >
-          <SegmentGroup.Indicator />
-          {CROP_MODES.map((item) => (
-            <SegmentGroup.Item key={item.value} value={item.value}>
-              <SegmentGroup.ItemText>{item.label}</SegmentGroup.ItemText>
-              <SegmentGroup.ItemControl />
-              <SegmentGroup.ItemHiddenInput />
-            </SegmentGroup.Item>
-          ))}
-        </SegmentGroup.Root>
+        <Box maxW="full" overflowX="auto">
+          <SegmentGroup.Root
+            value={cropMode}
+            onValueChange={(e) => setCropMode(e.value as CropMode)}
+            size="sm"
+            orientation="horizontal"
+            w="max-content"
+          >
+            <SegmentGroup.Indicator />
+            {CROP_MODES.map((item) => (
+              <SegmentGroup.Item key={item.value} value={item.value} flexShrink="0">
+                <SegmentGroup.ItemText whiteSpace="nowrap">{item.label}</SegmentGroup.ItemText>
+                <SegmentGroup.ItemControl />
+                <SegmentGroup.ItemHiddenInput />
+              </SegmentGroup.Item>
+            ))}
+          </SegmentGroup.Root>
+        </Box>
 
         <HStack gap="2.5" alignItems="center">
           <FaMagnifyingGlassPlus size={14} color="var(--colors-fg-muted)" />
@@ -831,16 +858,40 @@ function CropStep({
         </HStack>
 
         <HStack gap="2" justifyContent="space-between" flexWrap="wrap">
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setCropIndex(Math.max(0, cropIndex - 1))}
-            disabled={cropIndex === 0 || busy}
-          >
-            <FaArrowLeft />
-            戻る
-          </Button>
+          <HStack gap="2">
+            <styled.input
+              ref={repickRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (f) repick(f);
+              }}
+              display="none"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setCropIndex(Math.max(0, cropIndex - 1))}
+              disabled={cropIndex === 0 || busy}
+            >
+              <FaArrowLeft />
+              戻る
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => repickRef.current?.click()}
+              disabled={busy}
+              colorPalette="gray"
+            >
+              <FaImage />
+              別の画像
+            </Button>
+          </HStack>
           <HStack gap="2">
             <Button
               type="button"

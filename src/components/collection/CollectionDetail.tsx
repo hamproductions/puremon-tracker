@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FaArrowLeft,
   FaCheck,
@@ -6,6 +6,7 @@ import {
   FaPenToSquare,
   FaPlus,
   FaTableCells,
+  FaTrash,
   FaUsers
 } from 'react-icons/fa6';
 import { Box, Grid, HStack, Stack, Wrap, styled } from 'styled-system/jsx';
@@ -20,6 +21,7 @@ import { BromideTile } from '~/components/bromide/BromideTile';
 import { ProgressBar, StatPills } from '~/components/bromide/Progress';
 import { PhotoAddDialog } from '~/components/photo/PhotoAddDialog';
 import { buildSlotsFromItems } from '~/components/admin/CollectionEditor';
+import { assignBromideImage } from '~/lib/assignImage';
 import { deleteBromideImage } from '~/lib/storage';
 import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
@@ -92,19 +94,24 @@ export function CollectionDetail({
   const setByMember = (byMember: boolean) => setView((prev) => ({ ...prev, byMember }));
   const setGridCellMin = (gridCellMin: number) => setView((prev) => ({ ...prev, gridCellMin }));
   const directImageEdit = isAdmin;
+  const canSubmitImage = isAdmin || Boolean(profile);
+  const [pendingDelete, setPendingDelete] = useState<{
+    kind: 'image' | 'card';
+    bromide: Bromide;
+  } | null>(null);
+  const reassignRef = useRef<HTMLInputElement>(null);
+  const reassignTargetRef = useRef<Bromide | null>(null);
 
-  const requestImage = (bromideId: string) => {
-    if (!profile) {
+  const pickImage = async (bromide: Bromide, file: File) => {
+    try {
+      await assignBromideImage(bromide, file, { adminEdit: isAdmin, profile });
       toast({
-        title: directImageEdit
-          ? '画像登録にはログインが必要です'
-          : '画像投稿にはログインが必要です',
-        type: 'error'
+        title: isAdmin ? '画像を登録しました' : '画像を投稿しました（承認待ち）',
+        type: 'success'
       });
-      return;
+    } catch {
+      toast({ title: '画像の登録に失敗しました', type: 'error' });
     }
-    setPhotoTargetId(bromideId);
-    setPhotoOpen(true);
   };
 
   const adminEdit = isAdmin && editMode;
@@ -143,7 +150,7 @@ export function CollectionDetail({
     );
     toast({ title: 'メンバーを変更しました', type: 'success' });
   };
-  const removeItem = (target: Bromide) => {
+  const doRemoveItem = (target: Bromide) => {
     updateItems((collection.items ?? []).filter((it) => !sameCard(it, target)));
     toast({ title: 'アイテムを削除しました', type: 'success' });
   };
@@ -158,7 +165,7 @@ export function CollectionDetail({
     ]);
     toast({ title: 'アイテムを追加しました', type: 'success' });
   };
-  const removeImage = async (target: Bromide) => {
+  const doRemoveImage = async (target: Bromide) => {
     const saved = await catalogActions.setBromideImage(target.id, null);
     if (saved) await deleteBromideImage(target.imageUrl);
     toast({
@@ -201,8 +208,10 @@ export function CollectionDetail({
           setCount={setCount}
           shouldShow={shouldShow}
           adminEdit={adminEdit}
-          requestImage={requestImage}
-          removeImage={removeImage}
+          imageEdit={isAdmin}
+          canPickImage={canSubmitImage}
+          pickImage={pickImage}
+          removeImage={(b) => setPendingDelete({ kind: 'image', bromide: b })}
           gridCellMin={gridCellMin}
           grid={g}
         />
@@ -217,13 +226,17 @@ export function CollectionDetail({
         setCount={setCount}
         shouldShow={shouldShow}
         adminEdit={adminEdit}
-        requestImage={requestImage}
-        removeImage={removeImage}
+        imageEdit={isAdmin}
+        canPickImage={canSubmitImage}
+        pickImage={pickImage}
+        removeImage={(b) => setPendingDelete({ kind: 'image', bromide: b })}
         gridCellMin={gridCellMin}
         onEditItem={
           adminEdit && isMixed ? (b) => setEditTarget({ mode: 'retag', bromide: b }) : undefined
         }
-        onRemoveItem={adminEdit && isMixed ? removeItem : undefined}
+        onRemoveItem={
+          adminEdit && isMixed ? (b) => setPendingDelete({ kind: 'card', bromide: b }) : undefined
+        }
         onAddCard={
           adminEdit && isMixed
             ? () => {
@@ -521,6 +534,79 @@ export function CollectionDetail({
         </Dialog.Positioner>
       </Dialog.Root>
 
+      <styled.input
+        ref={reassignRef}
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          const target = reassignTargetRef.current;
+          reassignTargetRef.current = null;
+          if (f && target) void pickImage(target, f);
+        }}
+        display="none"
+      />
+
+      <Dialog.Root
+        open={pendingDelete !== null}
+        onOpenChange={(e) => {
+          if (!e.open) setPendingDelete(null);
+        }}
+        lazyMount
+        unmountOnExit
+      >
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content maxW="sm" p="5">
+            <Stack gap="4">
+              <Dialog.Title asChild>
+                <Heading fontSize="lg">
+                  {pendingDelete?.kind === 'image'
+                    ? '画像を削除しますか？'
+                    : 'カードを削除しますか？'}
+                </Heading>
+              </Dialog.Title>
+              <Text color="fg.muted" fontSize="sm">
+                {pendingDelete ? slotLabel(pendingDelete.bromide) : ''}
+                {pendingDelete?.kind === 'card' ? ' — この操作は取り消せません。' : ''}
+              </Text>
+              <Stack gap="2">
+                {pendingDelete?.kind === 'image' ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      reassignTargetRef.current = pendingDelete.bromide;
+                      setPendingDelete(null);
+                      reassignRef.current?.click();
+                    }}
+                  >
+                    <FaPenToSquare />
+                    別の画像に差し替え
+                  </Button>
+                ) : null}
+                <Button
+                  onClick={() => {
+                    if (!pendingDelete) return;
+                    const { kind, bromide } = pendingDelete;
+                    setPendingDelete(null);
+                    if (kind === 'image') void doRemoveImage(bromide);
+                    else doRemoveItem(bromide);
+                  }}
+                  colorPalette="red"
+                >
+                  <FaTrash />
+                  削除する
+                </Button>
+                <Dialog.CloseTrigger asChild>
+                  <Button variant="ghost">キャンセル</Button>
+                </Dialog.CloseTrigger>
+              </Stack>
+            </Stack>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Dialog.Root>
+
       <PhotoAddDialog
         catalog={catalog}
         collection={collection}
@@ -539,7 +625,9 @@ interface GridViewProps {
   setCount: (id: string, n: number) => void;
   shouldShow: (bromide?: Bromide) => boolean;
   adminEdit?: boolean;
-  requestImage?: (id: string) => void;
+  imageEdit?: boolean;
+  canPickImage?: boolean;
+  pickImage?: (b: Bromide, file: File) => void | Promise<void>;
   removeImage?: (b: Bromide) => void;
   gridCellMin: number;
 }
@@ -559,7 +647,9 @@ function MemberGridTable({
   setCount,
   shouldShow,
   adminEdit,
-  requestImage,
+  imageEdit,
+  canPickImage,
+  pickImage,
   removeImage,
   gridCellMin
 }: MemberGridProps) {
@@ -658,7 +748,10 @@ function MemberGridTable({
                       onSetCount={(n) => setCount(b.id, n)}
                       size="sm"
                       adminEdit={adminEdit}
-                      onAddImage={requestImage ? () => requestImage(b.id) : undefined}
+                      imageEdit={imageEdit}
+                      onPickImage={
+                        canPickImage && pickImage ? (file) => pickImage(b, file) : undefined
+                      }
                       onRemoveImage={removeImage ? () => removeImage(b) : undefined}
                     />
                   ) : (
@@ -716,7 +809,9 @@ function MemberSections({
   setCount,
   shouldShow,
   adminEdit,
-  requestImage,
+  imageEdit,
+  canPickImage,
+  pickImage,
   removeImage,
   gridCellMin
 }: MemberGridProps) {
@@ -759,7 +854,10 @@ function MemberSections({
                     size="md"
                     showStepper
                     adminEdit={adminEdit}
-                    onAddImage={requestImage ? () => requestImage(b.id) : undefined}
+                    imageEdit={imageEdit}
+                    onPickImage={
+                      canPickImage && pickImage ? (file) => pickImage(b, file) : undefined
+                    }
                     onRemoveImage={removeImage ? () => removeImage(b) : undefined}
                   />
                 </Stack>
@@ -788,7 +886,9 @@ function FlatGridView({
   setCount,
   shouldShow,
   adminEdit,
-  requestImage,
+  imageEdit,
+  canPickImage,
+  pickImage,
   removeImage,
   gridCellMin,
   onEditItem,
@@ -821,7 +921,8 @@ function FlatGridView({
               size="md"
               showStepper
               adminEdit={adminEdit}
-              onAddImage={requestImage ? () => requestImage(b.id) : undefined}
+              imageEdit={imageEdit}
+              onPickImage={canPickImage && pickImage ? (file) => pickImage(b, file) : undefined}
               onRemoveImage={removeImage ? () => removeImage(b) : undefined}
               onEditMember={onEditItem ? () => onEditItem(b) : undefined}
               onRemoveCard={onRemoveItem ? () => onRemoveItem(b) : undefined}
