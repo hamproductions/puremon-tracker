@@ -5,7 +5,6 @@ const PRODUCT_KEYS = [
   'puremon:e2e-profile',
   'puremon:images',
   'puremon:members',
-  'puremon:oshi',
   'puremon:remote-catalog',
   'puremon:submissions'
 ];

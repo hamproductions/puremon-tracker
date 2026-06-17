@@ -75,12 +75,13 @@ export function CollectionDetail({
     [collection.kind]
   );
   const [view, setView] = useUserPreference(`collection-view:${collection.id}`, defaultView);
-  const [byMemberAuto, setByMemberAuto] = useState(false);
+  const [isNarrow, setIsNarrow] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoTargetId, setPhotoTargetId] = useState<string | null>(null);
   const missingOnly = view.missingOnly;
   const byMember = view.byMember;
+  const effectiveByMember = byMember || isNarrow;
   const gridCellMin = view.gridCellMin;
   const grid = useMemo(
     () => buildGrid(catalog, collection, view.size),
@@ -175,12 +176,13 @@ export function CollectionDetail({
   };
 
   useEffect(() => {
-    if (byMemberAuto) return;
-    setByMemberAuto(true);
-    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches) {
-      setByMember(true);
-    }
-  }, [byMemberAuto]);
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 640px)');
+    const sync = () => setIsNarrow(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
   const stats = collectionStats(catalog, collection.id, ownership);
   const date = formatReleaseDate(collection.releaseDate);
   const isComplete = mounted && stats.percent === 100;
@@ -200,7 +202,7 @@ export function CollectionDetail({
       );
     if (g.kind === 'member_grid') {
       if (!memberVisible) return <EmptyState missingOnly={missingOnly} />;
-      const Comp = byMember || g.members.length <= 1 ? MemberSections : MemberGridTable;
+      const Comp = effectiveByMember || g.members.length <= 1 ? MemberSections : MemberGridTable;
       return (
         <Comp
           ownership={ownership}

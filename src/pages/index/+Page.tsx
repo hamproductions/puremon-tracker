@@ -15,7 +15,7 @@ import { useMounted } from '~/hooks/useMounted';
 import { useOshi } from '~/hooks/useOshi';
 import { useOwnership } from '~/hooks/useOwnership';
 import { readableText } from '~/utils/color';
-import { collectionStats, overallStats } from '~/utils/stats';
+import { collectionStats, overallStats, slotLabel } from '~/utils/stats';
 import { toAppUrl } from '~/utils/url';
 import type { Bromide } from '~/types';
 
@@ -132,6 +132,7 @@ export default function Page() {
                           count={ownership[b.id] ?? 0}
                           onToggle={() => toggle(b.id)}
                           onSetCount={(n) => setCount(b.id, n)}
+                          label={`${b.size ? `${b.size} ` : ''}${slotLabel(b)}`}
                           size="sm"
                           showStepper={false}
                         />

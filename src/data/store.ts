@@ -124,4 +124,4 @@ export const remoteCatalogStore = createMemoryStore<RemoteCatalog | null>(
   'puremon:remote-catalog',
   null
 );
-export const oshiStore = createMemoryStore<string[]>('puremon:oshi', []);
+export const oshiStore = createPersistedStore<string[]>('puremon:oshi', []);

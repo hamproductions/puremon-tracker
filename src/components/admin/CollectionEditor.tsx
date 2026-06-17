@@ -191,6 +191,7 @@ export function CollectionEditor({
   const { toast } = useToaster();
   const [editing, setEditing] = useState<Collection | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Collection | null>(null);
+  const [pendingSeed, setPendingSeed] = useState(false);
   const [pendingSave, setPendingSave] = useState<{
     collection: Collection;
     orphaned: number;
@@ -266,31 +267,30 @@ export function CollectionEditor({
   };
 
   const seedGrid = () => {
-    setForm((prev) => {
-      const members: (string | null)[] =
-        prev.kind === 'member_grid'
-          ? catalog.members.filter((m) => prev.memberIds.has(m.id)).map((m) => m.id)
-          : [null];
-      if (members.length === 0) {
-        toast({ title: 'メンバーを選んでください', type: 'error' });
-        return prev;
+    setPendingSeed(false);
+    const members: (string | null)[] =
+      form.kind === 'member_grid'
+        ? catalog.members.filter((m) => form.memberIds.has(m.id)).map((m) => m.id)
+        : [null];
+    if (members.length === 0) {
+      toast({ title: 'メンバーを選んでください', type: 'error' });
+      return;
+    }
+    const sizes = [form.seedL ? 'L' : null, form.seed2L ? '2L' : null].filter(
+      (s): s is string => s !== null
+    );
+    const sizeList: (string | null)[] = sizes.length > 0 ? sizes : [null];
+    const aspect = form.seedLandscape ? LANDSCAPE_ASPECT : DEFAULT_BROMIDE_ASPECT;
+    const count = Math.max(1, form.count);
+    const items: BromideSpec[] = [];
+    for (const memberId of members) {
+      for (let no = 1; no <= count; no += 1) {
+        for (const size of sizeList) items.push({ memberId, no, size, aspect });
       }
-      const sizes = [prev.seedL ? 'L' : null, prev.seed2L ? '2L' : null].filter(
-        (s): s is string => s !== null
-      );
-      const sizeList: (string | null)[] = sizes.length > 0 ? sizes : [null];
-      const aspect = prev.seedLandscape ? LANDSCAPE_ASPECT : DEFAULT_BROMIDE_ASPECT;
-      const count = Math.max(1, prev.count);
-      const items: BromideSpec[] = [];
-      for (const memberId of members) {
-        for (let no = 1; no <= count; no += 1) {
-          for (const size of sizeList) items.push({ memberId, no, size, aspect });
-        }
-      }
-      toast({ title: `${items.length}枚を生成しました`, type: 'success' });
-      return { ...prev, items };
-    });
+    }
+    setForm((prev) => ({ ...prev, items }));
     setSelected(new Set());
+    toast({ title: `${items.length}枚を生成しました`, type: 'success' });
   };
 
   const addRows = (n: number) => {
@@ -735,7 +735,12 @@ export function CollectionEditor({
                       ]}
                       onToggle={(v) => patch({ seedLandscape: v === 'l' })}
                     />
-                    <Button size="sm" onClick={seedGrid} colorPalette="accent" ml="auto">
+                    <Button
+                      size="sm"
+                      onClick={() => (form.items.length > 0 ? setPendingSeed(true) : seedGrid())}
+                      colorPalette="accent"
+                      ml="auto"
+                    >
                       グリッドを生成
                     </Button>
                   </HStack>
@@ -1087,6 +1092,41 @@ export function CollectionEditor({
                 <Button onClick={confirmDelete} colorPalette="red">
                   <FaTrash />
                   削除する
+                </Button>
+              </HStack>
+            </Stack>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Dialog.Root>
+
+      <Dialog.Root
+        open={pendingSeed}
+        onOpenChange={(e) => {
+          if (!e.open) setPendingSeed(false);
+        }}
+        lazyMount
+        unmountOnExit
+      >
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content maxW="sm" p="6">
+            <Stack gap="4">
+              <Stack gap="1">
+                <Dialog.Title asChild>
+                  <Heading fontSize="lg">グリッドを再生成しますか？</Heading>
+                </Dialog.Title>
+                <Dialog.Description asChild>
+                  <Text color="fg.muted" fontSize="sm">
+                    現在の{form.items.length}件を破棄して作り直します。手動の編集は失われます。
+                  </Text>
+                </Dialog.Description>
+              </Stack>
+              <HStack gap="2" justifyContent="flex-end">
+                <Dialog.CloseTrigger asChild>
+                  <Button variant="outline">キャンセル</Button>
+                </Dialog.CloseTrigger>
+                <Button onClick={seedGrid} colorPalette="red">
+                  再生成する
                 </Button>
               </HStack>
             </Stack>
