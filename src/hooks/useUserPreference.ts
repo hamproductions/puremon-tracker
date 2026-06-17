@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchPreferenceRemote, setPreferenceRemote } from '~/data/remote';
 import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
+import { hasE2EProfile } from '~/lib/e2eAuth';
 import { isSupabaseConfigured } from '~/lib/supabase';
 
 const preferenceQueryKey = (userId: string | null | undefined, key: string) =>
@@ -16,7 +17,7 @@ export function useUserPreference<T>(
   const { profile } = useAuth();
   const { toast } = useToaster();
   const queryClient = useQueryClient();
-  const userId = isSupabaseConfigured ? profile?.id : null;
+  const userId = isSupabaseConfigured && !hasE2EProfile() ? profile?.id : null;
   const remote = Boolean(userId);
   const queryKey = preferenceQueryKey(userId, key);
   const query = useQuery({

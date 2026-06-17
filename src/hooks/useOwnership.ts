@@ -4,6 +4,7 @@ import { fetchOwnershipRemote, replaceOwnershipRemote, setOwnershipRemote } from
 import { ownershipStore, useStore } from '~/data/store';
 import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
+import { hasE2EProfile } from '~/lib/e2eAuth';
 import { clearAnonymousOwnershipState } from '~/lib/localProductState';
 import { isSupabaseConfigured } from '~/lib/supabase';
 import type { OwnershipMap } from '~/types';
@@ -30,7 +31,7 @@ export function useOwnership() {
   const { toast } = useToaster();
   const queryClient = useQueryClient();
   const migratedUsers = useRef(new Set<string>());
-  const userId = isSupabaseConfigured ? profile?.id : null;
+  const userId = isSupabaseConfigured && !hasE2EProfile() ? profile?.id : null;
   const remote = Boolean(userId);
   const key = ownershipQueryKey(userId);
   const remoteQuery = useQuery({

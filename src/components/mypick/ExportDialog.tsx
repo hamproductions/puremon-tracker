@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { FaCopy, FaDownload, FaXmark } from 'react-icons/fa6';
 import { Box, HStack, Stack } from 'styled-system/jsx';
 import { Button } from '~/components/ui/button';
@@ -20,8 +20,26 @@ interface ExportDialogProps {
 
 export function ExportDialog({ open, onOpenChange, catalog, ownership }: ExportDialogProps) {
   const posterRef = useRef<HTMLDivElement>(null);
+  const roRef = useRef<ResizeObserver | null>(null);
   const { toast } = useToaster();
   const [busy, setBusy] = useState(false);
+  const [fit, setFit] = useState({ scale: 1, height: 0 });
+
+  const scrollRef = useCallback((node: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    if (!node) return;
+    const measure = () => {
+      const scale = Math.min(1, (node.clientWidth - 16) / 720);
+      const height = posterRef.current ? posterRef.current.offsetHeight * scale : 0;
+      setFit({ scale, height });
+    };
+    measure();
+    requestAnimationFrame(measure);
+    const ro = new ResizeObserver(measure);
+    ro.observe(node);
+    if (posterRef.current) ro.observe(posterRef.current);
+    roRef.current = ro;
+  }, []);
 
   const handleSave = async () => {
     if (!posterRef.current) return;
@@ -75,6 +93,7 @@ export function ExportDialog({ open, onOpenChange, catalog, ownership }: ExportD
           </HStack>
 
           <Box
+            ref={scrollRef}
             display="flex"
             flex="1"
             justifyContent="center"
@@ -83,11 +102,13 @@ export function ExportDialog({ open, onOpenChange, catalog, ownership }: ExportD
             bgColor="bg.muted"
             overflow="auto"
           >
-            <Box
-              style={{ transform: 'scale(min(1, calc((100vw - 120px) / 720)))' }}
-              transformOrigin="top center"
-            >
-              <ExportPoster ref={posterRef} catalog={catalog} ownership={ownership} />
+            <Box style={{ width: 720 * fit.scale, height: fit.height || undefined }} flexShrink="0">
+              <Box
+                style={{ transform: `scale(${fit.scale})`, width: '720px' }}
+                transformOrigin="top left"
+              >
+                <ExportPoster ref={posterRef} catalog={catalog} ownership={ownership} />
+              </Box>
             </Box>
           </Box>
 

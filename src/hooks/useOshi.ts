@@ -3,6 +3,7 @@ import { fetchOshiRemote, setOshiRemote } from '~/data/remote';
 import { oshiStore, useStore } from '~/data/store';
 import { useToaster } from '~/context/ToasterContext';
 import { useAuth } from '~/hooks/useAuth';
+import { hasE2EProfile } from '~/lib/e2eAuth';
 import { isSupabaseConfigured } from '~/lib/supabase';
 
 const oshiQueryKey = (userId: string | null | undefined) => ['oshi', userId] as const;
@@ -12,7 +13,7 @@ export function useOshi() {
   const { profile } = useAuth();
   const { toast } = useToaster();
   const queryClient = useQueryClient();
-  const userId = isSupabaseConfigured ? profile?.id : null;
+  const userId = isSupabaseConfigured && !hasE2EProfile() ? profile?.id : null;
   const remote = Boolean(userId);
   const key = oshiQueryKey(userId);
   const remoteQuery = useQuery({
